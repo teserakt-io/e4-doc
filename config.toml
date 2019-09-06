@@ -3,6 +3,9 @@ languageCode = "en-us"
 title = "E4"
 theme = "techdoc"
 
+pygmentsCodeFences = true
+pygmentsstyle = "solarized-dark"
+
 [Params]
     # Souce Code repository section
     description = "Lightweight and secure IoT communications library"
