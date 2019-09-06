@@ -1,0 +1,12 @@
+<header>
+    <a href="{{ .Site.Home.Permalink }}" id="title">
+        <img src="/images/logo.png" alt=" logo" id="logo"></img>
+        <h1>{{ .Site.Title }}</h1>
+    </a>
+    {{- with .Site.Params.github_repository -}}
+    <a href="{{ . }}" class="github"><i class="fab fa-github"></i></a>
+    {{- end -}}
+    {{ with .Site.Params.description }}
+    <p class="description">{{ . }}</p>
+    {{end}}
+</header>
