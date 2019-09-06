@@ -5,9 +5,9 @@ lastmod: "2019-09-06"
 draft: false
 ---
 
-In previous part, we made a simple application where `alice` and `bob` could exchange messages. But now we want them to be able to communicate privately, even if `eve` subscribe to their respective topics.
+In previous part, we made a simple application where `Alice` and `Bob` could exchange messages. But now we want them to be able to communicate privately, even if `Eve` subscribe to their respective topics.
 
-To do so, we'll create a symmetric key, and securely share it with `alice` and `bob`, so they can encrypt their messages.
+To do so, we'll create a symmetric key, and securely share it with `Alice` and `Bob`, so they can encrypt their messages.
 
 First, let's modify our previous application to create an E4 client and read a client password from the flags.
 {{< highlight go "hl_lines=7 13 17 24-27 37" >}}

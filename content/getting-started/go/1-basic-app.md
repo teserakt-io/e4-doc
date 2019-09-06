@@ -85,7 +85,6 @@ func main() {
 		fmt.Println("> message published successfully")
 	}
 }
-}
 ```
 
 We can now add our `initMQTT` function:
