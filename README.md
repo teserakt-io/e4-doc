@@ -6,7 +6,16 @@ This repository holds documentation for E4. It's based on [hugo](https://gohugo.
 
 ## Development
 
-Clone the repository then run
+First, install Hugo:
+
+``` bash
+go get -u github.com/gohugoio/hugo
+go install -a --tags extended github.com/gohugoio/hugo
+```
+
+
+Clone the repository then run:
+
 ```
 git submodule update # pull the theme
 hugo serve -D # start local hugo server on localhost:1313, including draft documents
@@ -17,5 +26,3 @@ Only when files get deleted, the build folder need to be deleted
 ```
 rm -rf public/
 ```
-
-
