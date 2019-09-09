@@ -17,3 +17,5 @@ Only when files get deleted, the build folder need to be deleted
 ```
 rm -rf public/
 ```
+
+
