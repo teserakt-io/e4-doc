@@ -7,10 +7,10 @@ draft: false
 
 Let's start by creating a basic Go client application. It will:
 
-* Read a client and a peer identifiers from a command line flag
-* Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
-* Subscribe to the peer topic `/e4go/demo/<peerID>/messages` and print incoming messages to stdout
-* Wait for user input on stdin, and publish messages on mqtt topic `/e4go/demo/<clientID>/messages` once user press the enter key.
+1. Read a client and a peer identifiers from command line flags
+2. Connect to a MQTT broker (we'll use our public `mqtt.teserakt.io:1338`)
+3. Subscribe to the peer MQTT topic `/e4go/demo/<peerID>/messages` and print any incoming messages to stdout
+4. Wait for user input on stdin, so user can type in a message and press enter. Messages will then be publish on a MQTT topic `/e4go/demo/<clientID>/messages`.
 
 Let's first move to an empty directory, and create our application file:
 ```bash
@@ -34,7 +34,7 @@ import (
 )
 
 func main() {
-	// 1 - Read a client identifier from a command line flag
+	// 1. Read a client and a peer identifiers from command line flags
 	var clientName string
 	var peerName string
 	flag.StringVar(&clientName, "client", "", "the client name")
@@ -48,15 +48,15 @@ func main() {
 		panic("-peer is required")
 	}
 
-	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
+	// 2. Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
 	brokerEndpoint := "mqtt.teserakt.io:1883"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
 		panic(fmt.Sprintf("failed to init mqtt client: %v\n", err))
 	}
-	fmt.Printf("connected to %s\n", brokerEndpoint)
+	fmt.Printf("> connected to %s\n", brokerEndpoint)
 
-	// 3 - Subscribe to peer MQTT topic and print incoming messages to stdout
+	// 3. Subscribe to the peer MQTT topic /e4go/demo/<peerID>/messages and print any incoming messages to stdout
 	peerTopic := fmt.Sprintf("/e4go/demo/%s/messages", peerName)
 	token := mqttClient.Subscribe(peerTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
 		fmt.Printf("< receive raw message on %s: %s\n", msg.Topic(), msg.Payload())
@@ -64,12 +64,12 @@ func main() {
 	if !token.WaitTimeout(1 * time.Second) {
 		panic(fmt.Sprintf("failed to mqtt subscribe: %v\n", token.Error()))
 	}
-	fmt.Printf("subscribed to peer topic %s\n", peerTopic)
+	fmt.Printf("> subscribed to peer topic %s\n", peerTopic)
 
-	// 4 - Wait for user input on stdin and publish messages
-	// on mqtt topic `/e4go/demo/<clientID>/messages` once user press the enter key.
+	// 4. Wait for user input on stdin, so user can type in a message and press enter.
+	// Messages will then be publish on a MQTT topic /e4go/demo/<clientID>/messages.
 	publishTopic := fmt.Sprintf("/e4go/demo/%s/messages", clientName)
-	fmt.Printf("type anything and press enter to send the message to %s:\n", publishTopic)
+	fmt.Printf("> type anything and press enter to send the message to %s:\n", publishTopic)
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		message := scanner.Text()
@@ -110,35 +110,35 @@ And we're done. We now have a basic application able to send and receive message
 [Click here to download the full source at this point](../e4demo-step1.go)
 
 We can now try it and exchange messages between `alice` and `bob`.
-Run in a first terminal:
 
-```bash
- $ go run e4demo.go  -client alice -peer bob
-connected to mqtt.teserakt.io:1883
-subscribed to peer topic /e4go/demo/bob/messages
-type anything and press enter to publish a message on /e4go/demo/alice/messages:
+Run in a first terminal and start an instance for `alice`, and type in the message for `bob`:
+```text
+$ go run e4demo.go  -client alice -peer bob
+> connected to mqtt.teserakt.io:1883
+> subscribed to peer topic /e4go/demo/bob/messages
+> type anything and press enter to publish a message on /e4go/demo/alice/messages:
 Hello, I'm alice, and this is a secret message for bob!
 > message published successfully
 ```
 
-And start a second terminal for the device2:
+And start a second one in another terminal for `bob`:
 
-```bash
- $ go run e4demo.go  -client bob -peer alice
-connected to mqtt.teserakt.io:1883
-subscribed to peer topic /e4go/demo/alice/messages
-type anything and press enter to send the message to /e4go/demo/bob/messages:
+```text
+$ go run e4demo.go  -client bob -peer alice
+> connected to mqtt.teserakt.io:1883
+> subscribed to peer topic /e4go/demo/alice/messages
+> type anything and press enter to send the message to /e4go/demo/bob/messages:
 < received raw message on /e4go/demo/alice/messages: Hello, I'm alice, and this is a secret message for bob!
 ```
 
-Alice and bob can now exchange messages properly.
-But the evil `eve` can sneak in and listen on alice topic as well:
+`alice` and `bob` can now exchange messages between each others.
+But the evil `eve` can sneak in and listen on `alice` topic as well:
 
-```bash
- $ go run e4demo.go  -client eve -peer alice
-connected to mqtt.teserakt.io:1883
-subscribed to peer topic /e4go/demo/alice/messages
-type anything and press enter to send the message to /e4go/demo/eve/messages:
+```text
+$ go run e4demo.go  -client eve -peer alice
+> connected to mqtt.teserakt.io:1883
+> subscribed to peer topic /e4go/demo/alice/messages
+> type anything and press enter to send the message to /e4go/demo/eve/messages:
 < received raw message on /e4go/demo/alice/messages: Hello, I'm alice, and this is a secret message for bob!
 ```
 

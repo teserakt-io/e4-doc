@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	// 1 - Read a client identifier from a command line flag
+	// 1. Read a client and a peer identifiers from command line flags
 	var clientName string
 	var peerName string
 	flag.StringVar(&clientName, "client", "", "the client name")
@@ -25,29 +25,28 @@ func main() {
 		panic("-peer is required")
 	}
 
-	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
+	// 2. Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
 	brokerEndpoint := "mqtt.teserakt.io:1883"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
-		panic(fmt.Sprintf("failed to init mqtt client: %v", err))
+		panic(fmt.Sprintf("failed to init mqtt client: %v\n", err))
 	}
-	fmt.Printf("connected to %s\n", brokerEndpoint)
+	fmt.Printf("> connected to %s\n", brokerEndpoint)
 
-	// 3 - Subscribe to peer MQTT topic and print incoming messages to stdout
+	// 3. Subscribe to the peer MQTT topic /e4go/demo/<peerID>/messages and print any incoming messages to stdout
 	peerTopic := fmt.Sprintf("/e4go/demo/%s/messages", peerName)
 	token := mqttClient.Subscribe(peerTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
-		fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
+		fmt.Printf("< receive raw message on %s: %s\n", msg.Topic(), msg.Payload())
 	})
-
 	if !token.WaitTimeout(1 * time.Second) {
-		panic(fmt.Sprintf("failed to subscribe to peer topic: %v\n", token.Error()))
+		panic(fmt.Sprintf("failed to mqtt subscribe: %v\n", token.Error()))
 	}
-	fmt.Printf("subscribed to peer topic %s\n", peerTopic)
+	fmt.Printf("> subscribed to peer topic %s\n", peerTopic)
 
-	// 4 - Wait for user input on stdin and publish messages
-	// on mqtt topic `/e4go/demo/<clientID>/messages` once user press the enter key.
+	// 4. Wait for user input on stdin, so user can type in a message and press enter.
+	// Messages will then be publish on a MQTT topic /e4go/demo/<clientID>/messages.
 	publishTopic := fmt.Sprintf("/e4go/demo/%s/messages", clientName)
-	fmt.Printf("type anything and press enter to send the message to %s:\n", publishTopic)
+	fmt.Printf("> type anything and press enter to send the message to %s:\n", publishTopic)
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		message := scanner.Text()

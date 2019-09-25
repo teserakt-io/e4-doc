@@ -5,14 +5,14 @@ lastmod: "2019-09-06"
 draft: false
 ---
 
-Previously, we've updated our application to integrate E4 library, and protect and unprotect the exchanged messages. But we could not communicate yet, since the clients didn't hold any keys necessary to encrypt or decrypt the messages. We'll fix this now.
+Previously, we've updated our application to integrate the E4 library, and protect and unprotect the exchanged messages. But we could not communicate yet, since the clients didn't hold any keys necessary to encrypt or decrypt the messages. We'll fix this now.
 
 E4 clients can receive commands, meant to update their internal state, like the list of topic keys they can uses. So to fix our issue, we'll need to:
 
-* generate 2 topic keys for /e4demo/alice/messages and /e4demo/bob/messages
-* send thoses keys to each clients, on their respective E4 receiving topics
+* generate 2 topic keys for /e4demo/alice/messages and /e4demo/bob/messages topics
+* send those keys to each clients, on their respective E4 receiving topics
 
-Once clients have received the keys, Alice will be able to protect message she send, and unprotect messages from Bob, and Bob can protect messages he send, and unprotect Alice's messages.
+Once clients have received the keys, `alice` will be able to protect message she send, and unprotect messages from `bob`. Also, `bob` can protect messages he send, and unprotect `alice` messages.
 
 
 Let's start by booting up our 2 clients, so they are listening on their topics:
@@ -138,7 +138,7 @@ Hello, I am alice and this is a secret message for bob!
 < unprotected message: Hello, I'm alice and this is a secret message for bob!
 ```
 
-It works! Now let's repeat our experiment with Eve, trying to intercept messages from Alice:
+It works! Now let's repeat our experiment with `eve`, trying to intercept messages from `alice`:
 ```bash
 $ go run e4demo.go  -client eve -peer alice -password eve-super-secret-password
 connected to mqtt.teserakt.io:1883
@@ -148,5 +148,5 @@ type anything and press enter to publish a message on to /e4go/demo/eve/messages
 failed to unprotect message: topic key not found
 ```
 
-All good, unauthorized clients cannot unprotect the messages and read their content. Alice and Bob can now exchange private messages.
-Now, feel free to authorize Eve by sending to its client the aliceTopicKey!
+All good, unauthorized clients cannot unprotect the messages and read their content. `alice` and `bob` can now exchange private messages.
+Now, feel free to authorize `eve` by sending to its client the alice topic key!

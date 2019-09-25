@@ -5,23 +5,23 @@ lastmod: "2019-09-06"
 draft: false
 ---
 
-In previous part, we made a simple application where `Alice` and `Bob` could exchange messages. But now we want them to be able to communicate privately, even if `Eve` subscribe to their respective topics.
+In previous part, we made a simple application where `alice` and `bob` could exchange messages. But now we want them to be able to communicate privately, even if `eve` subscribe to their respective topics.
 
-To do so, we'll create a symmetric key, and securely share it with `Alice` and `Bob`, so they can encrypt their messages.
+To do so, we'll integrate the E4 library in our application, and create a symmetric key, and securely share it with `alice` and `bob`, so they can encrypt their messages with it. After this, only key holders could read the exchanged messages.
 
 First, let's modify our previous application to create an E4 client and read a client password from the flags.
-{{< highlight go "hl_lines=7 13 17 24-27 37" >}}
+{{< highlight go "hl_lines=7 13 16 24-27 37" >}}
 package main
 
 import (
     // ...
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	e4 "gitlab.com/teserakt/e4common"
+	e4go "github.com/teserakt-io/e4go"
 )
 
 func main() {
-	// 1 - Read a client identifier from a command line flag
+	// 1. Read a client and a peer identifiers from command line flags
 	var clientName string
 	var clientPassword string
 	var peerName string
@@ -43,19 +43,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
+	// 2. Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
 	// ...
-	fmt.Printf("connected to %s\n", brokerEndpoint)
+	fmt.Printf("> connected to %s\n", brokerEndpoint)
 
 	e4Client, err := e4.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
 
-	// 3 - Subscribe to peer MQTT topic and print incoming messages to stdout
+	// 3. Subscribe to the peer MQTT topic /e4go/demo/<peerID>/messages and print any incoming messages to stdout
 	// ...
 }
 {{< / highlight >}}
 
-Now we'll update the `mqtt.Subscribe()` to subscribe to the peer topic and the e4 receiving topic
-We also feed the incoming messages to the `e4Client.Unprotect()` in the message's reception callback.
+Now we'll replace the previous `mqtt.Subscribe()` to subscribe to the peer topic and the e4 receiving topic
+We also feed the incoming messages to the `e4Client.Unprotect()` in the MQTT messages reception callback.
 
 ```go
     // ...
@@ -77,7 +77,7 @@ We also feed the incoming messages to the `e4Client.Unprotect()` in the message'
     // ...
 ```
 
-And last, we also update the `mqtt.Publish` call to protect the message :
+And last, we also update the payload we pass to `mqtt.Publish`, to protect the message first :
 
 {{< highlight go "hl_lines=7-12" >}}
         // ...
@@ -88,11 +88,11 @@ And last, we also update the `mqtt.Publish` call to protect the message :
 
 		protectedMessage, err := e4Client.ProtectMessage([]byte(message), publishTopic)
 		if err != nil {
-			fmt.Printf("> failed to protect message: %v\n", err)
+			fmt.Printf("failed to protect message: %v\n", err)
 			continue
 		}
 		if token := mqttClient.Publish(publishTopic, 1, true, protectedMessage); token.Error() != nil {
-			fmt.Printf("> failed to publish message: %v\n", token.Error())
+			fmt.Printf("failed to publish message: %v\n", token.Error())
 			continue
 		}
         // ...
@@ -103,13 +103,13 @@ And last, we also update the `mqtt.Publish` call to protect the message :
 And voila, our application have now integrated E4 and is ready to communicate securely.
 
 But something goes wrong when we try it:
-```bash
-$ go run e4demo.go  -client alice -peer bob -password alice-super-secret-password
-connected to mqtt.teserakt.io:1883
-subscribed to peer topic /e4go/demo/bob/messages
-type anything and press enter to publish a message on to /e4go/demo/alice/messages:
+```text
+$ go run e4demo.go -client alice -peer bob -password alice-super-secret-password
+> connected to mqtt.teserakt.io:1883
+> subscribed to peer topic /e4go/demo/bob/messages
+> type anything and press enter to publish a message on to /e4go/demo/alice/messages:
 Hello, I'm alice and this is a secret message for bob!
-> failed to protect message: topic key not found
+failed to protect message: topic key not found
 ```
 
 Right, we still need to transmit the key to the clients so they can encrypt and decrypt messages with it.
