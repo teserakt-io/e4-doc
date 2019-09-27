@@ -1,16 +1,17 @@
 ---
 title: "1) Basic application setup"
 date: "2019-09-06"
-lastmod: "2019-09-06"
+lastmod: "2019-09-27"
 draft: false
+weight: 1
 ---
 
 Let's start by creating a basic Go client application. It will:
 
-1. Read a client and a peer identifiers from command line flags
+1. Read a client identifier from command line flags
 2. Connect to a MQTT broker (we'll use our public `mqtt.teserakt.io:1338`)
-3. Subscribe to the peer MQTT topic `/e4go/demo/<peerID>/messages` and print any incoming messages to stdout
-4. Wait for user input on stdin, so user can type in a message and press enter. Messages will then be publish on a MQTT topic `/e4go/demo/<clientID>/messages`.
+3. Subscribe to the MQTT topic `/e4go/demo/messages` and print any incoming messages to stdout
+4. Wait for user input on stdin, so user can type in a message and press enter. Messages will then be publish on the peer MQTT topic `/e4go/demo/<peerName>/messages`.
 
 Let's first move to an empty directory, and create our application file:
 ```bash
@@ -34,42 +35,36 @@ import (
 )
 
 func main() {
-	// 1. Read a client and a peer identifiers from command line flags
+	// 1 - Read a client identifier from a command line flag
 	var clientName string
-	var peerName string
 	flag.StringVar(&clientName, "client", "", "the client name")
-	flag.StringVar(&peerName, "peer", "", "the peer name to read messages from")
 	flag.Parse()
 
 	if len(clientName) == 0 {
 		panic("-client is required")
 	}
-	if len(peerName) == 0 {
-		panic("-peer is required")
-	}
 
-	// 2. Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
+	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
 	brokerEndpoint := "mqtt.teserakt.io:1883"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
-		panic(fmt.Sprintf("failed to init mqtt client: %v\n", err))
+		panic(fmt.Sprintf("failed to init mqtt client: %v", err))
 	}
 	fmt.Printf("> connected to %s\n", brokerEndpoint)
 
-	// 3. Subscribe to the peer MQTT topic /e4go/demo/<peerID>/messages and print any incoming messages to stdout
-	peerTopic := fmt.Sprintf("/e4go/demo/%s/messages", peerName)
-	token := mqttClient.Subscribe(peerTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
-		fmt.Printf("< receive raw message on %s: %s\n", msg.Topic(), msg.Payload())
+	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
+	messageTopic := "/e4go/demo/messages"
+	token := mqttClient.Subscribe(messageTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
+		fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
 	})
 	if !token.WaitTimeout(1 * time.Second) {
-		panic(fmt.Sprintf("failed to mqtt subscribe: %v\n", token.Error()))
+		panic(fmt.Sprintf("failed to subscribe to MQTT topic: %v\n", token.Error()))
 	}
-	fmt.Printf("> subscribed to peer topic %s\n", peerTopic)
+	fmt.Printf("> subscribed to MQTT topic %s\n", messageTopic)
 
-	// 4. Wait for user input on stdin, so user can type in a message and press enter.
-	// Messages will then be publish on a MQTT topic /e4go/demo/<clientID>/messages.
-	publishTopic := fmt.Sprintf("/e4go/demo/%s/messages", clientName)
-	fmt.Printf("> type anything and press enter to send the message to %s:\n", publishTopic)
+	// 4 - Wait for user input on stdin and publish messages
+	// on the peer MQTT topic `/e4go/demo/messages` once user press the enter key.
+	fmt.Printf("> type anything and press enter to send the message to %s:\n", messageTopic)
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		message := scanner.Text()
@@ -77,7 +72,7 @@ func main() {
 			continue
 		}
 
-		if token := mqttClient.Publish(publishTopic, 1, true, message); token.Error() != nil {
+		if token := mqttClient.Publish(messageTopic, 1, true, message); token.Error() != nil {
 			fmt.Printf("> failed to publish message: %v\n", token.Error())
 			continue
 		}
@@ -113,10 +108,10 @@ We can now try it and exchange messages between `alice` and `bob`.
 
 Run in a first terminal and start an instance for `alice`, and type in the message for `bob`:
 ```text
-$ go run e4demo.go  -client alice -peer bob
+$ go run e4demo.go -client alice
 > connected to mqtt.teserakt.io:1883
-> subscribed to peer topic /e4go/demo/bob/messages
-> type anything and press enter to publish a message on /e4go/demo/alice/messages:
+> subscribed to MQTT topic /e4go/demo/messages
+> type anything and press enter to send the message to /e4go/demo/messages:
 Hello, I'm alice, and this is a secret message for bob!
 > message published successfully
 ```
@@ -124,22 +119,22 @@ Hello, I'm alice, and this is a secret message for bob!
 And start a second one in another terminal for `bob`:
 
 ```text
-$ go run e4demo.go  -client bob -peer alice
+$ go run e4demo.go -client bob
 > connected to mqtt.teserakt.io:1883
-> subscribed to peer topic /e4go/demo/alice/messages
-> type anything and press enter to send the message to /e4go/demo/bob/messages:
-< received raw message on /e4go/demo/alice/messages: Hello, I'm alice, and this is a secret message for bob!
+> subscribed to MQTT topic /e4go/demo/messages
+< received raw message on /e4go/demo/messages: Hello, I'm alice, and this is a secret message for bob!
+> type anything and press enter to send the message to /e4go/demo/messages:
 ```
 
 `alice` and `bob` can now exchange messages between each others.
-But the evil `eve` can sneak in and listen on `alice` topic as well:
+But the evil `eve` can sneak in, subscribe to the topic, and read / write messages:
 
 ```text
-$ go run e4demo.go  -client eve -peer alice
+$ go run e4demo.go -client eve
 > connected to mqtt.teserakt.io:1883
-> subscribed to peer topic /e4go/demo/alice/messages
-> type anything and press enter to send the message to /e4go/demo/eve/messages:
-< received raw message on /e4go/demo/alice/messages: Hello, I'm alice, and this is a secret message for bob!
+< received raw message on /e4go/demo/messages: Hello, I'm alice, and this is a secret message for bob!
+> subscribed to MQTT topic /e4go/demo/messages
+> type anything and press enter to send the message to /e4go/demo/messages:
 ```
 
 Let's jump to the next section and see how E4 can keep those message secret!

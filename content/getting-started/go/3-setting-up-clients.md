@@ -1,29 +1,34 @@
 ---
 title: "3) Setting up E4 clients"
 date: "2019-09-06"
-lastmod: "2019-09-06"
+lastmod: "2019-09-27"
 draft: false
+weight: 3
 ---
 
 Previously, we've updated our application to integrate the E4 library, and protect and unprotect the exchanged messages. But we could not communicate yet, since the clients didn't hold any keys necessary to encrypt or decrypt the messages. We'll fix this now.
 
 E4 clients can receive commands, meant to update their internal state, like the list of topic keys they can uses. So to fix our issue, we'll need to:
 
-* generate 2 topic keys for /e4demo/alice/messages and /e4demo/bob/messages topics
-* send those keys to each clients, on their respective E4 receiving topics
+* generate a topic key for /e4demo/messages topic
+* send this key to each clients, on their respective E4 receiving topics
 
-Once clients have received the keys, `alice` will be able to protect message she send, and unprotect messages from `bob`. Also, `bob` can protect messages he send, and unprotect `alice` messages.
+Once clients have received the key, `alice` will be able to protect message she send, and unprotect messages from `bob`. Also, `bob` can protect messages he send, and unprotect `alice` messages.
 
 
 Let's start by booting up our 2 clients, so they are listening on their topics:
 ```bash
 # In a first terminal, start Alice client:
-go run e4demo.go  -client alice -peer bob -password alice-super-secret-password
+go run e4demo.go  -client alice -password alice-super-secret-password
 # And in another, start Bob client:
-go run e4demo.go  -client bob -peer alice -password bob-super-secret-password
+go run e4demo.go  -client bob -password bob-super-secret-password
 ```
 
-Now, let's write another small `initKey.go` script to send SetTopicKey commands to our clients:
+Now, let's write another small `initKeys.go` script to send SetTopicKey commands to our clients:
+
+```text
+touch ./initKeys.go
+```
 
 ```go
 package main
@@ -33,33 +38,29 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	e4c "gitlab.com/teserakt/e4common"
-	e4crypto "gitlab.com/teserakt/e4common/crypto"
+	"github.com/teserakt-io/e4go"
+	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
 func main() {
-	// Generate alice and Bob's topic keys
-	aliceTopicKey := e4crypto.RandomKey()
-	bobTopicKey := e4crypto.RandomKey()
+	// Generate a key for the topic
+	messageTopicKey := e4crypto.RandomKey()
 
 	// Create Alice and Bob keys from their passwords
-	aliceKey, err := e4crypto.DeriveSymKey("alice-super-secret-password")
+	aliceKey, err := e4crypto.DeriveSymKey("super-secret-alice-password")
 	if err != nil {
 		panic(fmt.Sprintf("failed to derivate alice key from password: %v", err))
 	}
-	bobKey, err := e4crypto.DeriveSymKey("bob-super-secret-password")
+	bobKey, err := e4crypto.DeriveSymKey("super-secret-bob-password")
 	if err != nil {
 		panic(fmt.Sprintf("failed to derivate bob key from password: %v", err))
 	}
 
-	// Create commands:
-	setAliceTopicKeyCmd := []byte{e4c.SetTopicKey.ToByte()}
-	setAliceTopicKeyCmd = append(setAliceTopicKeyCmd, aliceTopicKey...)
-	setAliceTopicKeyCmd = append(setAliceTopicKeyCmd, e4crypto.HashTopic("/e4demo/alice/messages")...)
-
-	setBobTopicKeyCmd := []byte{e4c.SetTopicKey.ToByte()}
-	setBobTopicKeyCmd = append(setBobTopicKeyCmd, bobTopicKey...)
-	setBobTopicKeyCmd = append(setBobTopicKeyCmd, e4crypto.HashTopic("/e4demo/bob/messages")...)
+	// Create a E4 command to set the topic key:
+	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	if err != nil {
+		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
+	}
 
 	// Connect to MQTT broker
 	opts := mqtt.NewClientOptions()
@@ -71,22 +72,15 @@ func main() {
 		panic(fmt.Sprintf("failed to connect to mqtt broker: %v", token.Error()))
 	}
 
-	clientKeys := map[string][]byte{
-		"alice": aliceKey,
-		"bob":   bobKey,
+	// Protect and send the command to our 2 clients via MQTT
+	if err := protectAndSendCommand(mqttClient, "alice", aliceKey, setTopicKeyCmd); err != nil {
+		panic(fmt.Sprintf("failed to protect command: %v", err))
+	}
+	if err := protectAndSendCommand(mqttClient, "bob", bobKey, setTopicKeyCmd); err != nil {
+		panic(fmt.Sprintf("failed to protect command: %v", err))
 	}
 
-	// Protect and send the 2 commands to our 2 clients via MQTT
-	for client, key := range clientKeys {
-		if err := protectAndSendCommand(mqttClient, client, key, setAliceTopicKeyCmd); err != nil {
-			panic(fmt.Sprintf("failed to protect command: %v", err))
-		}
-		if err := protectAndSendCommand(mqttClient, client, key, setBobTopicKeyCmd); err != nil {
-			panic(fmt.Sprintf("failed to protect command: %v", err))
-		}
-	}
-
-	fmt.Println("TopicKeys have been set!")
+	fmt.Println("Topic keys have been set!")
 }
 
 func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey, command []byte) error {
@@ -95,7 +89,7 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4c.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	if !token.WaitTimeout(time.Second) {
 		return fmt.Errorf("failed to publish command: %v", token.Error())
@@ -105,12 +99,13 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 }
 ```
 
-[Click here to download the full source of this script](../e4demo-initKeys.go)
+[Click here to download the full source of this script](../initKeys-step3.go)
 
 Let's run this script:
 ```bash
- $ go run initKeys.go
-TopicKeys have been set!
+$ go run initKeys.go
+Topic key have been set for alice!
+Topic key have been set for bob!
 ```
 
 And we can observe on the client sides:
@@ -134,19 +129,21 @@ Hello, I am alice and this is a secret message for bob!
 > message published successfully
 
 # And see in bob client:
-< received raw message on /e4go/demo/alice/messages: Z�r]�w�f�>�`��~$1��6���l���_�a��ւX�x��ES��%�����V6��uҲ+�z�����
+< received raw message on /e4go/demo/messages: Z�r]�w�f�>�`��~$1��6���l���_�a��ւX�x��ES��%�����V6��uҲ+�z�����
 < unprotected message: Hello, I'm alice and this is a secret message for bob!
 ```
 
 It works! Now let's repeat our experiment with `eve`, trying to intercept messages from `alice`:
 ```bash
-$ go run e4demo.go  -client eve -peer alice -password eve-super-secret-password
+$ go run e4demo.go  -client eve -password super-secret-eve-password
 connected to mqtt.teserakt.io:1883
-subscribed to peer topic /e4go/demo/alice/messages
-type anything and press enter to publish a message on to /e4go/demo/eve/messages:
-< receive raw message on /e4go/demo/alice/messages: Z�r]�w�f�>�`��~$1��6���l���_�a��ւX�x��ES��%�����V6��uҲ+�z�����
+> subscribed to MQTT topic /e4go/demo/messages
+> type anything and press enter to send the message to /e4go/demo/messages:
+< received raw message on /e4go/demo/messages: ûö]îªò(ð\þ¿lYj:Kò"Ó
 failed to unprotect message: topic key not found
 ```
 
 All good, unauthorized clients cannot unprotect the messages and read their content. `alice` and `bob` can now exchange private messages.
-Now, feel free to authorize `eve` by sending to its client the alice topic key!
+Now, feel free to authorize `eve` by sending to its receiving topic a the setTopicKeyCommand!
+
+We'll do it in the next section anyway, to simulate `eve` having managed to steal the topic key. And we'll see another way of using the E4 client to protect even further our messages.

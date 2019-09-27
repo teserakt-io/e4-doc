@@ -12,46 +12,43 @@ import (
 )
 
 func main() {
-	// 1. Read a client and a peer identifiers from command line flags
+	// 1 - Read a client identifier from a command line flag
 	var clientName string
 	var clientPassword string
-	var peerName string
 	flag.StringVar(&clientName, "client", "", "the client name")
 	flag.StringVar(&clientPassword, "password", "", "the client password")
-	flag.StringVar(&peerName, "peer", "", "the peer name to read messages from")
 	flag.Parse()
 
 	if len(clientName) == 0 {
-		panic("-client is required")
+		fmt.Println("-client is required")
+		os.Exit(1)
 	}
 	if len(clientPassword) < 16 {
-		panic("-password is required and must contains at least 16 characters")
-	}
-	if len(peerName) == 0 {
-		panic("-peer is required")
+		fmt.Println("-password is required and must contains at least 16 characters")
+		os.Exit(1)
 	}
 
-	// 2. Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
+	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
 	brokerEndpoint := "mqtt.teserakt.io:1883"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
-		panic(fmt.Sprintf("failed to init mqtt client: %v\n", err))
+		fmt.Printf("failed to init mqtt client: %v\n", err)
 	}
-	fmt.Printf("> connected to %s\n", brokerEndpoint)
+	fmt.Printf("connected to %s\n", brokerEndpoint)
 
 	e4Client, err := e4go.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
-	if err != nil {
-		panic(fmt.Sprintf("failed to create E4 client: %v\n", err))
-	}
 
-	// 3. Subscribe to the peer MQTT topic /e4go/demo/<peerID>/messages and print any incoming messages to stdout
-	peerTopic := fmt.Sprintf("/e4go/demo/%s/messages", peerName)
+	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
+	messageTopic := "/e4go/demo/messages"
+	// token := mqttClient.Subscribe(messageTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
+	// 	fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
+	// })
 	topics := map[string]byte{
-		peerTopic:                    1,
+		messageTopic:                 1,
 		e4Client.GetReceivingTopic(): 2,
 	}
 	token := mqttClient.SubscribeMultiple(topics, func(_ mqtt.Client, msg mqtt.Message) {
-		fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
+		fmt.Printf("< receive raw message on %s: %s\n", msg.Topic(), msg.Payload())
 		clearMessage, err := e4Client.Unprotect(msg.Payload(), msg.Topic())
 		if err != nil {
 			fmt.Printf("failed to unprotect message: %v\n", err)
@@ -61,14 +58,13 @@ func main() {
 		fmt.Printf("< unprotected message: %s\n", clearMessage)
 	})
 	if !token.WaitTimeout(1 * time.Second) {
-		panic(fmt.Sprintf("failed to mqtt subscribe: %v\n", token.Error()))
+		panic(fmt.Sprintf("failed to subscribe to MQTT topic: %v\n", token.Error()))
 	}
-	fmt.Printf("> subscribed to peer topic %s\n", peerTopic)
+	fmt.Printf("> subscribed to MQTT topic %s\n", messageTopic)
 
-	// 4. Wait for user input on stdin, so user can type in a message and press enter.
-	// Messages will then be publish on a MQTT topic /e4go/demo/<clientID>/messages.
-	publishTopic := fmt.Sprintf("/e4go/demo/%s/messages", clientName)
-	fmt.Printf("> type anything and press enter to publish a message on to %s:\n", publishTopic)
+	// 4 - Wait for user input on stdin and publish messages
+	// on the peer MQTT topic `/e4go/demo/messages` once user press the enter key.
+	fmt.Printf("> type anything and press enter to send the message to %s:\n", messageTopic)
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		message := scanner.Text()
@@ -76,13 +72,13 @@ func main() {
 			continue
 		}
 
-		protectedMessage, err := e4Client.ProtectMessage([]byte(message), publishTopic)
+		protectedMessage, err := e4Client.ProtectMessage([]byte(message), messageTopic)
 		if err != nil {
-			fmt.Printf("failed to protect message: %v\n", err)
+			fmt.Printf("> failed to protect message: %v\n", err)
 			continue
 		}
-		if token := mqttClient.Publish(publishTopic, 1, true, protectedMessage); token.Error() != nil {
-			fmt.Printf("failed to publish message: %v\n", token.Error())
+		if token := mqttClient.Publish(messageTopic, 1, true, protectedMessage); token.Error() != nil {
+			fmt.Printf("> failed to publish message: %v\n", token.Error())
 			continue
 		}
 
