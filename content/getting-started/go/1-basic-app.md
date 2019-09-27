@@ -11,7 +11,7 @@ Let's start by creating a basic Go client application. It will:
 1. Read a client identifier from command line flags
 2. Connect to a MQTT broker (we'll use our public `mqtt.teserakt.io:1338`)
 3. Subscribe to the MQTT topic `/e4go/demo/messages` and print any incoming messages to stdout
-4. Wait for user input on stdin, so that the user can type in a message and press enter. Messages will then be published on the peer MQTT topic `/e4go/demo/<peerName>/messages`.
+4. Wait for user input on stdin, so that the user can type in a message and press enter. Messages will then be published on the peer MQTT topic `/e4go/demo/messages`.
 
 Let's first move to an empty directory, and create our application file:
 ```bash
