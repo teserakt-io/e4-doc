@@ -11,7 +11,7 @@ Let's start by creating a basic Go client application. It will:
 1. Read a client identifier from command line flags
 2. Connect to a MQTT broker (we'll use our public `mqtt.teserakt.io:1338`)
 3. Subscribe to the MQTT topic `/e4go/demo/messages` and print any incoming messages to stdout
-4. Wait for user input on stdin, so user can type in a message and press enter. Messages will then be publish on the peer MQTT topic `/e4go/demo/<peerName>/messages`.
+4. Wait for user input on stdin, so that the user can type in a message and press enter. Messages will then be published on the peer MQTT topic `/e4go/demo/<peerName>/messages`.
 
 Let's first move to an empty directory, and create our application file:
 ```bash
@@ -57,7 +57,8 @@ func main() {
 	token := mqttClient.Subscribe(messageTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
 		fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
 	})
-	if !token.WaitTimeout(1 * time.Second) {
+	timeout := time.Second
+	if !token.WaitTimeout(timeout) {
 		panic(fmt.Sprintf("failed to subscribe to MQTT topic: %v\n", token.Error()))
 	}
 	fmt.Printf("> subscribed to MQTT topic %s\n", messageTopic)
@@ -92,7 +93,8 @@ func initMQTT(brokerEndpoint, clientID string) (mqtt.Client, error) {
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
-	if token := mqttClient.Connect(); token.WaitTimeout(1*time.Second) && token.Error() != nil {
+	timeout := time.Second
+	if token := mqttClient.Connect(); token.WaitTimeout(timeout) && token.Error() != nil {
 		return nil, token.Error()
 	}
 

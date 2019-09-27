@@ -24,7 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 	if len(clientPassword) < 16 {
-		fmt.Println("-password is required and must contains at least 16 characters")
+		fmt.Println("-password is required and must be longer than 16 characters")
 		os.Exit(1)
 	}
 
@@ -57,7 +57,8 @@ func main() {
 
 		fmt.Printf("< unprotected message: %s\n", clearMessage)
 	})
-	if !token.WaitTimeout(1 * time.Second) {
+	timeout := time.Second
+	if !token.WaitTimeout(timeout) {
 		panic(fmt.Sprintf("failed to subscribe to MQTT topic: %v\n", token.Error()))
 	}
 	fmt.Printf("> subscribed to MQTT topic %s\n", messageTopic)
@@ -93,7 +94,8 @@ func initMQTT(brokerEndpoint, clientID string) (mqtt.Client, error) {
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
-	if token := mqttClient.Connect(); token.WaitTimeout(1*time.Second) && token.Error() != nil {
+	timeout := time.Second
+	if token := mqttClient.Connect(); token.WaitTimeout(timeout) && token.Error() != nil {
 		return nil, token.Error()
 	}
 

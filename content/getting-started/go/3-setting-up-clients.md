@@ -68,7 +68,8 @@ func main() {
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
-	if token := mqttClient.Connect(); token.WaitTimeout(time.Second) && token.Error() != nil {
+	timeout := time.Second
+	if token := mqttClient.Connect(); token.WaitTimeout(timeout) && token.Error() != nil {
 		panic(fmt.Sprintf("failed to connect to mqtt broker: %v", token.Error()))
 	}
 
@@ -91,7 +92,8 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 
 	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
-	if !token.WaitTimeout(time.Second) {
+	timeout := time.Second
+	if !token.WaitTimeout(timeout) {
 		return fmt.Errorf("failed to publish command: %v", token.Error())
 	}
 

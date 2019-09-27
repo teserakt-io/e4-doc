@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 	if len(clientPassword) < 16 {
-		fmt.Println("-password is required and must contains at least 16 characters")
+		fmt.Println("-password is required and must be longer than 16 characters")
 		os.Exit(1)
 	}
 
