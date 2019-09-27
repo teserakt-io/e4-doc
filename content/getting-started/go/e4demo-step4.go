@@ -27,14 +27,14 @@ func main() {
 		os.Exit(1)
 	}
 	// if len(clientPassword) < 16 {
-	// 	panic("-password is required and must contains at least 16 characters")
+	// 	panic("-password is required and must be longer than 16 characters")
 	// }
 
 	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
 	brokerEndpoint := "mqtt.teserakt.io:1883"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
-		fmt.Printf("failed to init mqtt client: %v\n", err)
+		panic(fmt.Sprintf("failed to init mqtt client: %v", err))
 	}
 	fmt.Printf("connected to %s\n", brokerEndpoint)
 
