@@ -32,7 +32,7 @@ func main() {
 	brokerEndpoint := "mqtt.teserakt.io:1883"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
-		fmt.Printf("failed to init mqtt client: %v\n", err)
+		panic(fmt.Sprintf("failed to init mqtt client: %v", err))
 	}
 	fmt.Printf("connected to %s\n", brokerEndpoint)
 
