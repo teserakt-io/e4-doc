@@ -113,12 +113,10 @@ Topic key have been set for bob!
 And we can observe on the client sides:
 ```bash
 # Alice:
-< received raw message on e4/a7dcef9aef26202fce82a7c7d6672afb: ǎr]�z{�����ʣ_�v�����^����m��>�Cｃs����U3$�˥�T���]�sʁ>�D�}
+< received raw message on e4/a7dcef9aef26202fce82a7c7d6672afb: <raw bytes>
 < unprotected message:
 # Bob:
-< received raw message on e4/b5d577dc9ce59725e29886632e69ecdf: Ȏr]s��
-�Vu�3�#%
-       A������7����'�������a�I���KZ�
+< received raw message on e4/b5d577dc9ce59725e29886632e69ecdf: <raw bytes>
 < unprotected message:
 ```
 
@@ -131,7 +129,7 @@ Hello, I am alice and this is a secret message for bob!
 > message published successfully
 
 # And see in bob client:
-< received raw message on /e4go/demo/messages: Z�r]�w�f�>�`��~$1��6���l���_�a��ւX�x��ES��%�����V6��uҲ+�z�����
+< received raw message on /e4go/demo/messages: <raw bytes>
 < unprotected message: Hello, I'm alice and this is a secret message for bob!
 ```
 
