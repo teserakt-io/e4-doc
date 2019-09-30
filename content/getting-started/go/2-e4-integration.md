@@ -52,13 +52,12 @@ func main() {
 Now we'll replace the previous `mqtt.Subscribe()` to subscribe to the peer topic and the e4 receiving topic
 We also feed the incoming messages to the `e4Client.Unprotect()` in the MQTT messages reception callback.
 
-```go
+{{<tabs>}}
+{{<tab after>}}
+{{<highlight go>}}
 	// ...
 	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
 	messageTopic := "/e4go/demo/messages"
-	// token := mqttClient.Subscribe(messageTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
-	// 	fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
-	// })
 	topics := map[string]byte{
 		messageTopic:                 1,
 		e4Client.GetReceivingTopic(): 2,
@@ -74,7 +73,21 @@ We also feed the incoming messages to the `e4Client.Unprotect()` in the MQTT mes
 		fmt.Printf("< unprotected message: %s\n", clearMessage)
 	})
 	// ...
-```
+{{</highlight>}}
+{{</tab>}}
+{{<tab before>}}
+{{<highlight go>}}
+	// ...
+	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
+	messageTopic := "/e4go/demo/messages"
+	token := mqttClient.Subscribe(messageTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
+	 	fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
+	 })
+	// ...
+{{</highlight>}}
+{{</tab>}}
+{{</tabs>}}
+
 
 And last, we also update the payload we pass to `mqtt.Publish`, to protect the message first :
 
