@@ -17,18 +17,13 @@ import (
 func main() {
 	// 1 - Read a client identifier from a command line flag
 	var clientName string
-	//var clientPassword string
 	flag.StringVar(&clientName, "client", "", "the client name")
-	// flag.StringVar(&clientPassword, "password", "", "the client password")
 	flag.Parse()
 
 	if len(clientName) == 0 {
 		fmt.Println("-client is required")
 		os.Exit(1)
 	}
-	// if len(clientPassword) < 16 {
-	// 	panic("-password is required and must be longer than 16 characters")
-	// }
 
 	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
 	brokerEndpoint := "mqtt.teserakt.io:1883"
@@ -38,7 +33,6 @@ func main() {
 	}
 	fmt.Printf("connected to %s\n", brokerEndpoint)
 
-	// e4Client, err := e4go.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
 	adminPubCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey("admin"))
 	e4Client, err := e4go.NewPubKeyClient(
 		e4crypto.HashIDAlias(clientName),
@@ -49,9 +43,6 @@ func main() {
 
 	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
 	messageTopic := "/e4go/demo/messages"
-	// token := mqttClient.Subscribe(messageTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
-	// 	fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
-	// })
 	topics := map[string]byte{
 		messageTopic:                 1,
 		e4Client.GetReceivingTopic(): 2,
