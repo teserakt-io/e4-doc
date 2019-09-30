@@ -133,23 +133,19 @@ func loadPrivateKey(name string) ed25519.PrivateKey {
 
 Then we continue by commenting out the now useless `clientPassword` flag, and switch our `NewSymKeyClientPretty` to the new `NewPubKeyClient`. Notice how the pubKeyClient is created given the `admin` public key, such as it could authenticate the commands we'll send later.
 
-```go
+{{<tabs>}}
+{{<tab after>}}
+{{<highlight go>}}
 func main() {
 	var clientName string
-	//var clientPassword string
 	flag.StringVar(&clientName, "client", "", "the client name")
-	// flag.StringVar(&clientPassword, "password", "", "the client password")
 	flag.Parse()
 
 	if len(clientName) == 0 {
 		fmt.Println("-client is required")
 		os.Exit(1)
 	}
-	// if len(clientPassword) < 16 {
-	// 	panic("-password is required and must contains at least 16 characters")
-	// }
 
-	// e4Client, err := e4go.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
 	adminPubCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey("admin"))
 	e4Client, err := e4go.NewPubKeyClient(
 		e4crypto.HashIDAlias(clientName),
@@ -157,37 +153,50 @@ func main() {
 		fmt.Sprintf("%s.json", clientName),
 		adminPubCurveKey[:],
 	)
+	// ...
+{{</highlight>}}
+{{</tab>}}
+{{<tab before>}}
+{{<highlight go>}}
+func main() {
+	var clientName string
+	var clientPassword string
+	flag.StringVar(&clientName, "client", "", "the client name")
+	flag.StringVar(&clientPassword, "password", "", "the client password")
+	flag.Parse()
 
-```
+	if len(clientName) == 0 {
+		fmt.Println("-client is required")
+		os.Exit(1)
+	}
+	if len(clientPassword) < 16 {
+		panic("-password is required and must contains at least 16 characters")
+	}
+
+	e4Client, err := e4go.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
+	// ...
+{{</highlight>}}
+{{</tab>}}
+{{</tabs>}}
+
 [Click here to download the full source of this script](../e4demo-step4.go)
 
 And that's all we need!
 
 Let's now modify then `initKeys.go` script to protect and send the commands using the new keys.
 We'll start by adding 3 helpers, reusing our previous 2 key loading functions, and a new `pubKeyProtectAndSendCommand`. We also comment out the `protectAndSendCommand` function as we'll not need it anymore:
-
-```go
-// func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey, command []byte) error {
-// 	protectedCommand, err := e4crypto.ProtectSymKey(command, clientKey)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to protect command: %v", err)
-// 	}
-
-// 	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
-// 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
-// 	if !token.WaitTimeout(time.Second) {
-// 		return fmt.Errorf("failed to publish command: %v", token.Error())
-// 	}
-
-// 	return nil
-// }
-
+{{<tabs>}}
+{{<tab after>}}
+{{<highlight go>}}
 func pubKeyProtectAndSendCommand(mqttClient mqtt.Client, clientName string, command []byte) error {
 	// Load ed25519 keys, and convert them to curve25519 keys
 	clientPublicCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey(clientName))
 	adminPrivateCurveKey := e4crypto.PrivateEd25519KeyToCurve25519(loadPrivateKey("admin"))
 
 	protectedCommand, err := e4crypto.ProtectCommandPubKey(command, clientPublicCurveKey, adminPrivateCurveKey)
+	if err != nil {
+		return fmt.Errorf("failed to protect command: %v", err)
+	}
 
 	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
@@ -215,11 +224,33 @@ func loadPrivateKey(name string) ed25519.PrivateKey {
 
 	return ed25519.PrivateKey(privKey)
 }
-```
+{{</highlight>}}
+{{</tab>}}
+{{<tab before>}}
+{{<highlight go>}}
+func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey, command []byte) error {
+	protectedCommand, err := e4crypto.ProtectSymKey(command, clientKey)
+	if err != nil {
+		return fmt.Errorf("failed to protect command: %v", err)
+	}
+
+	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
+	if !token.WaitTimeout(time.Second) {
+		return fmt.Errorf("failed to publish command: %v", token.Error())
+	}
+
+	return nil
+}
+{{</highlight>}}
+{{</tab>}}
+{{</tabs>}}
 
 Next, we update the main function to create the commands and send them over mqtt, as we did before. But this time we'll give the topic key to `alice`, `bob` and `eve`, and add an extra command to give `bob` public key to `alice`, and `alice` public key to `bob`:
 
-```go
+{{<tabs>}}
+{{<tab after>}}
+{{<highlight go>}}
 package main
 
 import (
@@ -238,16 +269,6 @@ func main() {
 	// Generate a key for the topic
 	messageTopicKey := e4crypto.RandomKey()
 
-	// Create Alice and Bob keys from their passwords
-	// aliceKey, err := e4crypto.DeriveSymKey("super-secret-alice-password")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("failed to derivate alice key from password: %v", err))
-	// }
-	// bobKey, err := e4crypto.DeriveSymKey("super-secret-bob-password")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("failed to derivate bob key from password: %v", err))
-	// }
-
 	// Create a E4 command to set the topic key:
 	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
@@ -263,17 +284,6 @@ func main() {
 	if token := mqttClient.Connect(); token.WaitTimeout(time.Second) && token.Error() != nil {
 		panic(fmt.Sprintf("failed to connect to mqtt broker: %v", token.Error()))
 	}
-
-	// Protect and send the command to our 2 clients via MQTT
-	// if err := protectAndSendCommand(mqttClient, "alice", aliceKey, setTopicKeyCmd); err != nil {
-	// 	panic(fmt.Sprintf("failed to protect command: %v", err))
-	// }
-	// fmt.Println("Topic key have been set for alice!")
-
-	// if err := protectAndSendCommand(mqttClient, "bob", bobKey, setTopicKeyCmd); err != nil {
-	// 	panic(fmt.Sprintf("failed to protect command: %v", err))
-	// }
-	// fmt.Println("Topic key have been set for bob!")
 
 	// Protect and send alice's topic key to our 3 clients:
 	for _, client := range []string{"alice", "bob", "eve"} {
@@ -302,9 +312,68 @@ func main() {
 		panic(fmt.Sprintf("failed to send alice's public key to bob: %v", err))
 	}
 	fmt.Println("bob now have alice's public key!")
-
 }
-```
+{{</highlight>}}
+{{</tab>}}
+{{<tab before>}}
+{{<highlight go>}}
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+
+	"github.com/teserakt-io/e4go"
+	e4crypto "github.com/teserakt-io/e4go/crypto"
+)
+
+func main() {
+	// Generate a key for the topic
+	messageTopicKey := e4crypto.RandomKey()
+
+	// Create Alice and Bob keys from their passwords
+	aliceKey, err := e4crypto.DeriveSymKey("super-secret-alice-password")
+	if err != nil {
+		panic(fmt.Sprintf("failed to derivate alice key from password: %v", err))
+	}
+	bobKey, err := e4crypto.DeriveSymKey("super-secret-bob-password")
+	if err != nil {
+		panic(fmt.Sprintf("failed to derivate bob key from password: %v", err))
+	}
+
+	// Create a E4 command to set the topic key:
+	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	if err != nil {
+		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
+	}
+
+	// Connect to MQTT broker
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker("mqtt.teserakt.io:1883")
+	opts.SetCleanSession(true)
+
+	mqttClient := mqtt.NewClient(opts)
+	if token := mqttClient.Connect(); token.WaitTimeout(time.Second) && token.Error() != nil {
+		panic(fmt.Sprintf("failed to connect to mqtt broker: %v", token.Error()))
+	}
+
+	// Protect and send the command to our 2 clients via MQTT
+	if err := protectAndSendCommand(mqttClient, "alice", aliceKey, setTopicKeyCmd); err != nil {
+		panic(fmt.Sprintf("failed to protect command: %v", err))
+	}
+	fmt.Println("Topic key have been set for alice!")
+
+	if err := protectAndSendCommand(mqttClient, "bob", bobKey, setTopicKeyCmd); err != nil {
+		panic(fmt.Sprintf("failed to protect command: %v", err))
+	}
+	fmt.Println("Topic key have been set for bob!")
+}
+{{</highlight>}}
+{{</tab>}}
+{{</tabs>}}
 
 [Click here to download the full source of this script](../initKeys-step4.go)
 
