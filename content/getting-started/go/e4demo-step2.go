@@ -40,9 +40,6 @@ func main() {
 
 	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
 	messageTopic := "/e4go/demo/messages"
-	// token := mqttClient.Subscribe(messageTopic, 1, func(_ mqtt.Client, msg mqtt.Message) {
-	// 	fmt.Printf("< received raw message on %s: %s\n", msg.Topic(), msg.Payload())
-	// })
 	topics := map[string]byte{
 		messageTopic:                 1,
 		e4Client.GetReceivingTopic(): 2,
