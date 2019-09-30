@@ -5,7 +5,6 @@ $(document).ready(function () {
         navTabs.append('<li><a href="#">' + title + '</a></li');
     });
 
-    updateCurrentTab(1)
 
     $('.nav-tabs a').click(function (e) {
         e.preventDefault();
@@ -16,13 +15,16 @@ $(document).ready(function () {
         tabPanel.find('.active').removeClass('active');
         tab.addClass('active');
         tabPane.addClass('active');
-
-        updateCurrentTab(tabIndex + 1)
+        updateCurrentTab(tabPanel, tabIndex + 1)
     });
 
-    function updateCurrentTab(tabNumber) {
-        $('.nav-tabs a').closest('.code-tabs').find('.active').removeClass('active');
-        $('.code-tabs ul.nav-tabs').find("li:nth-of-type(" + tabNumber + ")").addClass('active');
-        $('.code-tabs .tab-content').find("div:nth-of-type(" + tabNumber + ")").addClass('active');
+    function updateCurrentTab(panel, tabIndex) {
+        panel.find('.active').removeClass('active');
+        $('ul.nav-tabs', panel).find("li:nth-of-type(" + tabIndex + ")").addClass('active');
+        $('.tab-content', panel).find("div:nth-of-type(" + tabIndex + ")").addClass('active');
     }
+
+    $(".code-tabs").each(function () {
+        updateCurrentTab($(this), 1);
+    })
 });
