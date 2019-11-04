@@ -7,13 +7,13 @@ pygmentsCodeFences = true
 pygmentsstyle = "solarized-dark"
 
 [Params]
-    # Souce Code repository section
-    description = "Lightweight and secure IoT communications library"
-    github_repository = "https://github.com/Teserakt-io/e4"
+    # Source code repository section
+    description = "Secure IoT communications library"
+    github_repository = "https://github.com/teserakt-io/e4go"
 
     # Documentation repository section
     # documentation repository (set edit link to documentation repository)
-    github_doc_repository = "https://github.com/Teserakt-io/e4-doc"
+    github_doc_repository = "https://github.com/teserakt-io/e4-doc"
 
     # path name excluded from documentation menu
     menu_exclusion = []
