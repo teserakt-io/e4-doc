@@ -8,7 +8,7 @@ pygmentsstyle = "solarized-dark"
 
 [Params]
     # Source code repository section
-    description = "Secure IoT communications library"
+    description = "IoT data protection"
     github_repository = "https://github.com/teserakt-io/e4go"
 
     # Documentation repository section

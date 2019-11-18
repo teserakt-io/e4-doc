@@ -1,32 +1,41 @@
 # Teserakt E4
 
-Teserakt's E4 solution makes IoT encryption and key management simple,
-efficient, and transparent, thanks to two components:
+Teserakt's E4 solution makes IoT data protection painless thanks to:
 
-* **E4 client library**, which encrypts and decrypts data on the IoT devices
+* **E4 client library**, which encrypts and decrypts data in IoT devices
 
-* **C2 server** and related services, which provide:
-    - Key distribution and rotation 
-    - GUI and CLI
-    - API 
-    - Automation of key distribution policies
-    - Monitoring ..
-    - Observability 
-    - Enterprise-grade availability
+* **C2 server**, which manages devices' keys thanks to:
+    - **Automation** of key distribution and key rotation
+    - **Scalability** to millions of devices and messages
+    - **Monitoring** of the data to detect network abnomalies
 
+For example, the C2 server can ensure that each device will use
 
-The C2 server 
+* a first key to decrypt firmware and configuration updates
+* a second key to encrypt data sent to the analytics back-end
 
-It can be set up on-premise or as SaaS.
+in a way that these keys are automatically rotated every week in order
+to mitigate a potential breach.
 
-Contact us for a quote..
+C2 can run on-premise or as SaaS and talks HTTP/JSON and
+gRPC/protobuf. We provide a CLI interface and a web GUI, which
+you can test on our "free-for-all" platform at <a
+href="https://console.demo.teserakt.io">console.demo.teserakt.io</a>, by
+following <a href="TODO">our instructions</a>.
 
-Teserakt can provide
+Don't hesitate to <a href="mailto:contact@teserakt.io">contact us</a>
+for more information or to try E4.
+
+The client library is open-source and can be used for free without C2,
+by following our <a href="TODO">Getting started</a> pages.
+
 
 ## The E4 client library
 
 The E4 client library enables lightweight and secure communication once integrated into IoT devices.
 It plug itself right between your business logic and the device transport layer, making it easy to integrate.
+
+Requirements
 
 The E4 client library can be used in two ways:
 
@@ -46,4 +55,4 @@ Please let us know in the [issues](https://github.com/Teserakt-io/e4common/issue
 
 ## Support
 
-
+Contact us.
