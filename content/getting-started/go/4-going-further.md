@@ -24,7 +24,8 @@ Let's get started!
 First, let's make a simple key generator that we will reuse for all our key generations. We'll call `e4crypto.Ed25519PrivateKeyFromPassword` with a password, and write the resulting public and private keys to a file:
 
 ```text
-touch keygen.go
+mkdir -p keygen
+touch ./keygen/keygen.go
 ```
 
 ```go
@@ -90,20 +91,20 @@ func main() {
 
 Now let's run it to generate our first key pair for ourselves:
 ```text
-$ go run keygen.go -name admin -password super-secret-admin-password
+$ go run ./keygen/keygen.go -name admin -password super-secret-admin-password
 Generated private key: ./admin
 Generated public key: ./admin.pub
 ```
 
 Since we're at it, let's also generate other keys for `alice`, `bob` and `eve`, we'll use them in a moment:
 ```text
-$ go run keygen.go -name alice -password super-secret-alice-password
+$ go run ./keygen/keygen.go -name alice -password super-secret-alice-password
 Generated private key: ./alice
 Generated public key: ./alice.pub
-$ go run keygen.go -name bob -password super-secret-bob-password
+$ go run ./keygen/keygen.go -name bob -password super-secret-bob-password
 Generated private key: ./bob
 Generated public key: ./bob.pub
-$ go run keygen.go -name eve -password super-secret-eve-password
+$ go run ./keygen/keygen.go -name eve -password super-secret-eve-password
 Generated private key: ./eve
 Generated public key: ./eve.pub
 ```
@@ -403,7 +404,7 @@ connected to mqtt.teserakt.io:1883
 And in another terminal, run the `initKey.go` script:
 
 ```text
-$ go run initKeys.go
+$ go run ./init/initKeys.go
 topic key have been set for alice!
 topic key have been set for bob!
 topic key have been set for eve!

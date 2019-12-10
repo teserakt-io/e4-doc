@@ -27,7 +27,8 @@ go run e4demo.go  -client bob -password bob-super-secret-password
 Now, let's write another small `initKeys.go` script to send SetTopicKey commands to our clients:
 
 ```text
-touch ./initKeys.go
+mkdir -p init
+touch ./init/initKeys.go
 ```
 
 ```go
@@ -105,7 +106,7 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 
 Let's run this script:
 ```bash
-$ go run initKeys.go
+$ go run ./init/initKeys.go
 Topic key have been set for alice!
 Topic key have been set for bob!
 ```
