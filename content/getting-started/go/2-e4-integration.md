@@ -18,7 +18,7 @@ import (
     // ...
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 )
 
 func main() {

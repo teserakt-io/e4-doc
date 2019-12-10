@@ -9,7 +9,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 	"golang.org/x/crypto/ed25519"
 )
@@ -34,7 +34,7 @@ func main() {
 	fmt.Printf("connected to %s\n", brokerEndpoint)
 
 	adminPubCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey("admin"))
-	e4Client, err := e4go.NewPubKeyClient(
+	e4Client, err := e4.NewPubKeyClient(
 		e4crypto.HashIDAlias(clientName),
 		loadPrivateKey(clientName),
 		fmt.Sprintf("%s.json", clientName),

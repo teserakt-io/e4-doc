@@ -147,7 +147,7 @@ func main() {
 	}
 
 	adminPubCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey("admin"))
-	e4Client, err := e4go.NewPubKeyClient(
+	e4Client, err := e4.NewPubKeyClient(
 		e4crypto.HashIDAlias(clientName),
 		loadPrivateKey(clientName),
 		fmt.Sprintf("%s.json", clientName),
@@ -173,7 +173,7 @@ func main() {
 		panic("-password is required and must contains at least 16 characters")
 	}
 
-	e4Client, err := e4go.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
+	e4Client, err := e4.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
 	// ...
 {{</highlight>}}
 {{</tab>}}
@@ -198,7 +198,7 @@ func pubKeyProtectAndSendCommand(mqttClient mqtt.Client, clientName string, comm
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	if !token.WaitTimeout(time.Second) {
 		return fmt.Errorf("failed to publish command: %v", token.Error())
@@ -234,7 +234,7 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	if !token.WaitTimeout(time.Second) {
 		return fmt.Errorf("failed to publish command: %v", token.Error())
@@ -261,7 +261,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"golang.org/x/crypto/ed25519"
 
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
@@ -270,7 +270,7 @@ func main() {
 	messageTopicKey := e4crypto.RandomKey()
 
 	// Create a E4 command to set the topic key:
-	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	setTopicKeyCmd, err := e4.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
 	}
@@ -294,7 +294,7 @@ func main() {
 	}
 
 	// Now gives bob's public key to alice
-	setBobPubKeyCmd, err := e4go.CmdSetPubKey(loadPublicKey("bob"), "bob")
+	setBobPubKeyCmd, err := e4.CmdSetPubKey(loadPublicKey("bob"), "bob")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setBobPubKeyCmd: %v", err))
 	}
@@ -304,7 +304,7 @@ func main() {
 	fmt.Println("alice now have bob's public key!")
 
 	// And alice's public key to bob
-	setAlicePubKeyCmd, err := e4go.CmdSetPubKey(loadPublicKey("alice"), "alice")
+	setAlicePubKeyCmd, err := e4.CmdSetPubKey(loadPublicKey("alice"), "alice")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setAlicePubKeyCmd: %v", err))
 	}
@@ -326,7 +326,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
@@ -345,7 +345,7 @@ func main() {
 	}
 
 	// Create a E4 command to set the topic key:
-	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	setTopicKeyCmd, err := e4.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
 	}

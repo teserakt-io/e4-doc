@@ -8,7 +8,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 )
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 	}
 	fmt.Printf("connected to %s\n", brokerEndpoint)
 
-	e4Client, err := e4go.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
+	e4Client, err := e4.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
 
 	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
 	messageTopic := "/e4go/demo/messages"
