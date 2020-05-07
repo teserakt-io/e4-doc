@@ -1,6 +1,6 @@
-# Teserakt E4
+# E4
 
-Teserakt's E4 solution makes IoT data protection painless thanks to:
+E4 solution makes IoT data protection painless thanks to:
 
 * **E4 client library**, which encrypts and decrypts data in IoT devices
 * **C2 server**, which manages devices' keys thanks to:
