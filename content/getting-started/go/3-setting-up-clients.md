@@ -24,7 +24,7 @@ go run e4demo.go  -client alice -password alice-super-secret-password
 go run e4demo.go  -client bob -password bob-super-secret-password
 ```
 
-Now, let's write another small `initKeys.go` script to send SetTopicKey commands to our clients:
+Now, let's write another small `initKeys.go` script to send `SetTopicKey` commands to our clients:
 
 ```text
 touch ./initKeys.go
@@ -104,14 +104,14 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 [Click here to download the full source of this script](../initKeys-step3.go)
 
 Let's run this script:
-```bash
-$ go run initKeys.go
+```
+$ go run ./init/initKeys.go
 Topic key have been set for alice!
 Topic key have been set for bob!
 ```
 
 And we can observe on the client sides:
-```bash
+```text
 # Alice:
 < received raw message on e4/a7dcef9aef26202fce82a7c7d6672afb: <raw bytes>
 < unprotected message:
