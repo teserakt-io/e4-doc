@@ -7,7 +7,6 @@ weight: 3
 * [Client local API (rx)](#client-local-api-rx)
     * [protect_message(message, topic)](#protect-messagemessage-topic)
     * [unprotect(message, topic)](#unprotectmessage-topic)
-* [Client local API (tx)](#client-local-api-tx)
 * [Client remote API (rx)](#client-remote-api-rx)
     * [RemoveTopic(topichash)](#removetopictopichash)
     * [ResetTopics()](#resettopics)
@@ -17,7 +16,6 @@ weight: 3
     * [ResetPubKeys() [PK mode]](#resetpubkeys-pk-mode)
     * [SetPubKey(id, pubkey) [PK mode]](#setpubkeyid-pubkey-pk-mode)
     * [SetC2Key(pubkey) [PK mode]](#setc2keypubkey-pk-mode)
-* [Client remote API (tx)](#client-remote-api-tx)
 * [Key transition logic](#key-transition-logic)
 
 E4 clients are for example sensors devices, vehicles, mobile phones, backend servers or any type of device that participates in the communication.
@@ -78,11 +76,6 @@ The maximal delay authorized will depend on the use case, and is a parameter of 
 
 If a `TopicKeyMissing` error is returned, by default the message is discarded (strict encryption).
 But an application can change this policy if the business logic requires it, and choose to received the process the message when no topic key is known.
-
-## Client local API (tx)
-
-**TODO**
-
 
 ## Client remote API (rx)
 
@@ -156,9 +149,6 @@ Encoding: `0x07 | pubkey (32)`
 
 This command should be use with great care, and in such a way that devices are unlikely to miss the message. The new C2 key should also be recoverable at any time, for example through instantaneous backups of the private key generated.
 
-## Client remote API (tx)
-
-**TODO**
 
 ## Key transition logic
 

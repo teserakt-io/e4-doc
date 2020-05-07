@@ -18,7 +18,6 @@ E4 uses the AES-SIV authenticated encryption mode as specified in [RFC 5297](htt
 
 AES-SIV can leverage hardware AES instructions or other cryptographic accelerators.
 
-
 ## Hashing
 
 Hashing is used for hashing topic names, and uses SHA-3 with a 32-byte output.
@@ -32,7 +31,6 @@ The C2 human interface components use Argon2id to derive a symmetric key, or to 
 ## Signature [PK mode]
 
 E4 client use Ed25519 to sign messages.s
-
 
 ## Key agreement [PK mode]
 

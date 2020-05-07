@@ -40,10 +40,7 @@ E4's server includes the core C2 service as well as other services:
 * Observability components: OpenCensus agent, Prometheus, Jaeger
 
 Of these components, only the C2 core and database are mandatory for a basic deployment of E4.
-To deploy these in an existing infrastructure as Docker containers, we can provide Ansible scripts that will automatically download, configure, and start the required  services.
-Alternatively, we can provide virtual appliances.
-
-Once up and running, users can interact with C2 and its component via their respective  web interfaces, or use our command-line application.
+Users can interact with C2 and its components via their the web interface, or use the command-line applications.
 Other services can leverage C2's HTTP and gRPC APIs, as well as APIs exposed by other services.
 
 C2 should be connected to the same network as the MQTT broker used by the clients.

@@ -16,31 +16,16 @@ For example, the C2 server can ensure that each device will use
 in a way that these keys are automatically rotated every week in order
 to mitigate a potential breach.
 
-C2 can run on-premise or as SaaS and talks HTTP/JSON and
-gRPC/protobuf. We provide a CLI interface and a web GUI.
+C2 can talks HTTP/JSON and gRPC/protobuf and have a CLI and a web GUI clients.
 
-Don't hesitate to <a href="mailto:contact@teserakt.io">contact us</a>
-for more information or to try E4.
-
-The client library is open-source and can be used for free without C2,
-by following our [Getting started](getting-started) pages.
+The client library can be used without C2, by following our [Getting started](getting-started) pages.
 
 ## The E4 client library
 
 The E4 client library enables lightweight and secure communication once integrated into IoT devices.
 It plug itself right between your business logic and the device transport layer, making it easy to integrate.
 
-Requirements
-
-The E4 client library can be used in two ways:
-
-* Unmanaged:
-
-* Managed mode: Your fleet of devices is managed by E4's
-
-The E4 client library is developed by [Teserakt](https://teserakt.io) and is free to use.
-
-Please let us know in the [issues](https://github.com/Teserakt-io/e4common/issues) or via [email](mailto:team@teserakt.io) if you stumble upon a bug, see a possible enhancement, or have a comment on design.
+Please let us know in the [issues](https://github.com/teserakt-io/e4go/issues) if you stumble upon a bug, see a possible enhancement, or have a comment on design.
 
 ## Features
 
@@ -105,7 +90,6 @@ Security limitations of E4 are:
 * **Single point of failure**: C2 holds the client and topic keys, and can therefore impersonate any client, and decrypt any encrypted message. This can be mitigated by storing keys in encrypted form and storing the decryption key in an HSM, or in other some software vault technology. C2 should only be accessible after proper authentication (and preferably multi-factor authentication), and all its operations must be logged.
 
 * **Risk from untrusted clients**: A malicious client may ignore a `RemoveTopic` command and keep the decryption keys in their table. To ensure that a client loses access to a given topic, the topic key must therefore be updated on all clients.
-
 
 ## E4 modes
 

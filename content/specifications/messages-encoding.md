@@ -71,4 +71,4 @@ To protect C2 commands sent to client devices, we used public-key authenticated 
 
 The protected message format can be left unchanged compared to the SK mode, since the client will already know that the message is coming from C2, and therefore will know what key to used.
 
-Note that it is possible for the client to precompute and store the shared key, since it will not change unless C2 changes its key pair.
+Note that the client precompute and store the shared key, since it will not change unless C2 changes its key pair.
