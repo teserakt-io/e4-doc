@@ -9,15 +9,16 @@ weight: 1
 Let's start by creating a basic Go client application. It will:
 
 1. Read a client identifier from command line flags
-2. Connect to a MQTT broker (we'll use our public `mqtt.teserakt.io:1338`)
+2. Connect to a MQTT broker (we'll use the public `mqtt.eclipse.org:1338`)
 3. Subscribe to the MQTT topic `/e4go/demo/messages` and print any incoming messages to stdout
 4. Wait for user input on stdin, so that the user can type in a message and press enter. Messages will then be published on the peer MQTT topic `/e4go/demo/messages`.
 
 Let's first move to an empty directory, and create our application file:
 ```bash
-$ mkdir -p e4demo && cd e4demo
-$ go mod init e4demo
-$ touch e4demo.go
+$ mkdir -p e4demo && \
+	cd e4demo && \
+	go mod init e4demo && \
+	touch e4demo.go
 ```
 
 Now the code:
@@ -44,8 +45,8 @@ func main() {
 		panic("-client is required")
 	}
 
-	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
-	brokerEndpoint := "mqtt.teserakt.io:1883"
+	// 2 - Connect to a MQTT broker (we'll use the public mqtt.eclipse.org:1338)
+	brokerEndpoint := "mqtt.eclipse.org:1883"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
 		panic(fmt.Sprintf("failed to init mqtt client: %v", err))
@@ -111,7 +112,7 @@ We can now try it and exchange messages between `alice` and `bob`.
 Run in a first terminal and start an instance for `alice`, and type in the message for `bob`:
 ```text
 $ go run e4demo.go -client alice
-> connected to mqtt.teserakt.io:1883
+> connected to mqtt.eclipse.org:1883
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
 Hello, I'm alice, and this is a secret message for bob!
@@ -122,7 +123,7 @@ And start a second one in another terminal for `bob`:
 
 ```text
 $ go run e4demo.go -client bob
-> connected to mqtt.teserakt.io:1883
+> connected to mqtt.eclipse.org:1883
 > subscribed to MQTT topic /e4go/demo/messages
 < received raw message on /e4go/demo/messages: Hello, I'm alice, and this is a secret message for bob!
 > type anything and press enter to send the message to /e4go/demo/messages:
@@ -133,7 +134,7 @@ But the evil `eve` can sneak in, subscribe to the topic, and read / write messag
 
 ```text
 $ go run e4demo.go -client eve
-> connected to mqtt.teserakt.io:1883
+> connected to mqtt.eclipse.org:1883
 < received raw message on /e4go/demo/messages: Hello, I'm alice, and this is a secret message for bob!
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
