@@ -9,7 +9,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 	"golang.org/x/crypto/ed25519"
 )
@@ -26,7 +26,7 @@ func main() {
 	}
 
 	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
-	brokerEndpoint := "mqtt.teserakt.io:1883"
+	brokerEndpoint := "mqtt.eclipse.org:1338"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
 		panic(fmt.Sprintf("failed to init mqtt client: %v", err))
@@ -34,12 +34,14 @@ func main() {
 	fmt.Printf("connected to %s\n", brokerEndpoint)
 
 	adminPubCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey("admin"))
-	e4Client, err := e4go.NewPubKeyClient(
-		e4crypto.HashIDAlias(clientName),
-		loadPrivateKey(clientName),
-		fmt.Sprintf("%s.json", clientName),
-		adminPubCurveKey[:],
-	)
+	e4Client, err := e4.NewClient(&e4.PubIDAndKey{
+		ID:       e4crypto.HashIDAlias(clientName),
+		Key:      loadPrivateKey(clientName),
+		C2PubKey: adminPubCurveKey[:],
+	}, e4.NewInMemoryStore(nil))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create e4 client: %v", err))
+	}
 
 	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
 	messageTopic := "/e4go/demo/messages"

@@ -1,5 +1,5 @@
 ---
-title: "2) Protecting messages with E4"
+title: "Protecting messages with E4"
 date: "2019-09-06"
 lastmod: "2019-09-27"
 draft: false
@@ -11,14 +11,14 @@ In previous part, we made a simple application where `alice` and `bob` could exc
 To do so, we'll integrate the E4 library in our application, and create a symmetric key, and securely share it with `alice` and `bob`, so they can encrypt their messages with it. After this, only key holders could read the exchanged messages.
 
 First, let's modify our previous application to create an E4 client and read a client password from the flags.
-{{< highlight go "hl_lines=7 13 15 22-25 31" >}}
+{{< highlight go "hl_lines=7 13 15 22-25 31-34" >}}
 package main
 
 import (
     // ...
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 )
 
 func main() {
@@ -42,7 +42,10 @@ func main() {
 	// ...
 	fmt.Printf("> connected to %s\n", brokerEndpoint)
 
-	e4Client, err := e4.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
+	e4Client, err := e4.NewClient(&e4.SymNameAndPassword{Name: clientName, Password: clientPassword}, e4.NewInMemoryStore(nil))
+	if err != nil {
+		panic(fmt.Sprintf("failed to created e4 client: %v", err))
+	}
 
 	// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
 	// ...
@@ -118,7 +121,7 @@ But something goes wrong when we try it:
 ```text
 # Alice
 $ go run e4demo.go -client alice -password super-secret-alice-password
-> connected to mqtt.teserakt.io:1883
+> connected to mqtt.eclipse.org:1338
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
 Hello, I'm alice and this is a secret message for bob!
@@ -126,7 +129,7 @@ Hello, I'm alice and this is a secret message for bob!
 
 # Bob
 $ go run e4demo.go -client bob -password super-secret-bob-password
-connected to mqtt.teserakt.io:1883
+connected to mqtt.eclipse.org:1338
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
 ```

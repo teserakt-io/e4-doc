@@ -21,7 +21,7 @@ func main() {
 	}
 
 	// 2 - Connect to a MQTT broker (we'll use our public mqtt.teserakt.io:1338)
-	brokerEndpoint := "mqtt.teserakt.io:1883"
+	brokerEndpoint := "mqtt.eclipse.org:1338"
 	mqttClient, err := initMQTT(brokerEndpoint, clientName)
 	if err != nil {
 		panic(fmt.Sprintf("failed to init mqtt client: %v", err))

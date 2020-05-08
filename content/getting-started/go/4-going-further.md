@@ -1,5 +1,5 @@
 ---
-title: "4) Going further"
+title: "Going further"
 date: "2019-09-25"
 lastmod: "2019-09-27"
 draft: false
@@ -13,7 +13,7 @@ We'll go through the following steps, modifying our previous application to achi
 1. Generate an admin (for us) public / private key pair
 2. Generate public/private key pairs for `alice`, `bob` and `eve`
 3. Switch the E4 SymClient to a PubKeyClient
-4. Update our previous `initKey.go` to
+4. Update our previous `init/initKey.go` to
  - protect commands using our new admin key
  - share the topic key to `eve`
  - send a new command to `alice`, to set  `bob` public key on its client
@@ -21,91 +21,27 @@ We'll go through the following steps, modifying our previous application to achi
 
 Let's get started!
 
-First, let's make a simple key generator that we will reuse for all our key generations. We'll call `e4crypto.Ed25519PrivateKeyFromPassword` with a password, and write the resulting public and private keys to a file:
+First, let's use E4 key generator for all our key generations. We'll generate Ed25519 keys, and write the resulting public and private keys to a file:
 
 ```text
-touch keygen.go
-```
-
-```go
-package main
-
-import (
-	"flag"
-	"fmt"
-	"io/ioutil"
-	"os"
-
-	e4crypto "github.com/teserakt-io/e4go/crypto"
-	"golang.org/x/crypto/ed25519"
-)
-
-func main() {
-	var name string
-	var password string
-
-	flag.StringVar(&name, "name", "", "the key filename")
-	flag.StringVar(&password, "password", "", "the password to generate the keys from")
-	flag.Parse()
-
-	if len(name) == 0 {
-		fmt.Println("-name is required")
-		os.Exit(1)
-	}
-
-	if len(password) == 0 {
-		fmt.Println("-password is required")
-		os.Exit(1)
-	}
-
-	// Generate private key from password
-	privateKey, err := e4crypto.Ed25519PrivateKeyFromPassword(password)
-	if err != nil {
-		fmt.Printf("failed to generate private key: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Write private key file
-	if err := ioutil.WriteFile(name, privateKey, 0600); err != nil {
-		fmt.Printf("failed to create private key file './%s': %v\n", name, err)
-		os.Exit(1)
-	}
-	fmt.Printf("Generated private key: ./%s\n", name)
-
-	// Write public key file
-	pubName := fmt.Sprintf("%s.pub", name)
-	pubBytes, ok := privateKey.Public().(ed25519.PublicKey)
-	if !ok {
-		panic(fmt.Sprintf("%T is invalid for public key, wanted ed25519.PublicKey", privateKey.Public()))
-	}
-	if err := ioutil.WriteFile(pubName, pubBytes, 0644); err != nil {
-		fmt.Printf("failed to create public key file './%s': %v\n", pubName, err)
-		os.Exit(1)
-	}
-	fmt.Printf("Generated public key: ./%s\n", pubName)
-}
-```
-
-[Click here to download the full source of this script](../keygen-step4.go)
-
-Now let's run it to generate our first key pair for ourselves:
-```text
-$ go run keygen.go -name admin -password super-secret-admin-password
-Generated private key: ./admin
-Generated public key: ./admin.pub
+# Install the E4 keygen:
+$ go install github.com/teserakt-io/e4go/cmd/e4keygen
+$ e4keygen -type ed25519 -out ./admin
+private key successfully written at ./admin
+public key successfully written at ./admin.pub
 ```
 
 Since we're at it, let's also generate other keys for `alice`, `bob` and `eve`, we'll use them in a moment:
 ```text
-$ go run keygen.go -name alice -password super-secret-alice-password
-Generated private key: ./alice
-Generated public key: ./alice.pub
-$ go run keygen.go -name bob -password super-secret-bob-password
-Generated private key: ./bob
-Generated public key: ./bob.pub
-$ go run keygen.go -name eve -password super-secret-eve-password
-Generated private key: ./eve
-Generated public key: ./eve.pub
+$ e4keygen -type ed25519 -out ./alice
+private key successfully written at ./alice
+public key successfully written at ./alice.pub
+$ e4keygen -type ed25519 -out ./bob
+private key successfully written at ./bob
+public key successfully written at ./bob.pub
+$ e4keygen -type ed25519 -out ./eve
+private key successfully written at ./eve
+public key successfully written at ./eve.pub
 ```
 
 Now that we have keys for everyone, let's update our application.
@@ -131,7 +67,7 @@ func loadPrivateKey(name string) ed25519.PrivateKey {
 }
 ```
 
-Then we continue by commenting out the now useless `clientPassword` flag, and switch our `NewSymKeyClientPretty` to the new `NewPubKeyClient`. Notice how the pubKeyClient is created given the `admin` public key, such as it could authenticate the commands we'll send later.
+Then we continue by removing the now useless `clientPassword` flag, and switch our `SymNameAndPassword` config to the new `PubIDAndKey`. Notice how the pubKeyClient is created given the `admin` public key (after converting it to a curve25519 key), such as it could authenticate the commands we'll send later.
 
 {{<tabs>}}
 {{<tab after>}}
@@ -147,12 +83,11 @@ func main() {
 	}
 
 	adminPubCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey("admin"))
-	e4Client, err := e4go.NewPubKeyClient(
-		e4crypto.HashIDAlias(clientName),
-		loadPrivateKey(clientName),
-		fmt.Sprintf("%s.json", clientName),
-		adminPubCurveKey[:],
-	)
+	e4Client, err := e4.NewClient(&e4.PubIDAndKey{
+		ID:       e4crypto.HashIDAlias(clientName),
+		Key:      loadPrivateKey(clientName),
+		C2PubKey: adminPubCurveKey[:],
+	}, e4.NewInMemoryStore(nil))
 	// ...
 {{</highlight>}}
 {{</tab>}}
@@ -173,7 +108,7 @@ func main() {
 		panic("-password is required and must contains at least 16 characters")
 	}
 
-	e4Client, err := e4go.NewSymKeyClientPretty(clientName, clientPassword, fmt.Sprintf("%s.json", clientName))
+	e4Client, err := e4.NewClient(&e4.SymNameAndPassword{Name: clientName, Password: clientPassword}, e4.NewInMemoryStore(nil))
 	// ...
 {{</highlight>}}
 {{</tab>}}
@@ -183,8 +118,9 @@ func main() {
 
 And that's all we need!
 
-Let's now modify then `initKeys.go` script to protect and send the commands using the new keys.
+Let's now modify then `init/initKeys.go` script to protect and send the commands using the new keys.
 We'll start by adding 3 helpers, reusing our previous 2 key loading functions, and a new `pubKeyProtectAndSendCommand`. We also comment out the `protectAndSendCommand` function as we'll not need it anymore:
+
 {{<tabs>}}
 {{<tab after>}}
 {{<highlight go>}}
@@ -193,12 +129,17 @@ func pubKeyProtectAndSendCommand(mqttClient mqtt.Client, clientName string, comm
 	clientPublicCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey(clientName))
 	adminPrivateCurveKey := e4crypto.PrivateEd25519KeyToCurve25519(loadPrivateKey("admin"))
 
-	protectedCommand, err := e4crypto.ProtectCommandPubKey(command, clientPublicCurveKey, adminPrivateCurveKey)
+	shared, err := curve25519.X25519(adminPrivateCurveKey, clientPublicCurveKey)
+	if err != nil {
+		return fmt.Errorf("curve25519 X25519 failed: %v", err)
+	}
+
+	protectedCommand, err := e4crypto.ProtectSymKey(command, e4crypto.Sha3Sum256(shared))
 	if err != nil {
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	if !token.WaitTimeout(time.Second) {
 		return fmt.Errorf("failed to publish command: %v", token.Error())
@@ -234,7 +175,7 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	if !token.WaitTimeout(time.Second) {
 		return fmt.Errorf("failed to publish command: %v", token.Error())
@@ -261,7 +202,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"golang.org/x/crypto/ed25519"
 
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
@@ -270,14 +211,14 @@ func main() {
 	messageTopicKey := e4crypto.RandomKey()
 
 	// Create a E4 command to set the topic key:
-	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	setTopicKeyCmd, err := e4.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
 	}
 
 	// Connect to MQTT broker
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker("mqtt.teserakt.io:1883")
+	opts.AddBroker("mqtt.eclipse.org:1338")
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
@@ -294,7 +235,7 @@ func main() {
 	}
 
 	// Now gives bob's public key to alice
-	setBobPubKeyCmd, err := e4go.CmdSetPubKey(loadPublicKey("bob"), "bob")
+	setBobPubKeyCmd, err := e4.CmdSetPubKey(loadPublicKey("bob"), "bob")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setBobPubKeyCmd: %v", err))
 	}
@@ -304,7 +245,7 @@ func main() {
 	fmt.Println("alice now have bob's public key!")
 
 	// And alice's public key to bob
-	setAlicePubKeyCmd, err := e4go.CmdSetPubKey(loadPublicKey("alice"), "alice")
+	setAlicePubKeyCmd, err := e4.CmdSetPubKey(loadPublicKey("alice"), "alice")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setAlicePubKeyCmd: %v", err))
 	}
@@ -326,7 +267,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
@@ -345,14 +286,14 @@ func main() {
 	}
 
 	// Create a E4 command to set the topic key:
-	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	setTopicKeyCmd, err := e4.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
 	}
 
 	// Connect to MQTT broker
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker("mqtt.teserakt.io:1883")
+	opts.AddBroker("mqtt.eclipse.org:1338")
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
@@ -383,19 +324,19 @@ First, we open 3 terminal and start our clients:
 ```text
 # Alice
 $ go run e4demo.go -client alice
-connected to mqtt.teserakt.io:1883
+connected to mqtt.eclipse.org:1338
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
 
 # Bob
 $ go run e4demo.go -client bob
-connected to mqtt.teserakt.io:1883
+connected to mqtt.eclipse.org:1338
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
 
 # Eve
 $ go run e4demo.go -client eve
-connected to mqtt.teserakt.io:1883
+connected to mqtt.eclipse.org:1338
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
 ```
@@ -458,6 +399,5 @@ failed to unprotect message: signer public key not found
 ```
 
 E4 properly discard `eve` messages as neither `alice` or `bob` have been given her public key.
-
 
 That's it for our E4 introduction with the Go client. If you have any questions, or other use cases which are not covered yet, feel free to open an issue on the [Github tracker](https://github.com/teserakt-io/e4go/issues)

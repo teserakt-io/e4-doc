@@ -1,5 +1,5 @@
 ---
-title: "1) Basic application setup"
+title: "Basic application setup"
 date: "2019-09-06"
 lastmod: "2019-09-27"
 draft: false
