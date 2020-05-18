@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1 id="e4">E4</h1>
+<p>E4 solution makes IoT data protection painless thanks to:</p>
+<ul>
+<li><strong>E4 client library</strong>, which encrypts and decrypts data in IoT devices</li>
+<li><strong>C2 server</strong>, which manages devices&rsquo; keys thanks to:
+<ul>
+<li><strong>Automation</strong> of key distribution and key rotation</li>
+<li><strong>Scalability</strong> to millions of devices and messages</li>
+<li><strong>Monitoring</strong> of the data to detect network anomalies</li>
+</ul>
+</li>
+</ul>
+<p>For example, the C2 server can ensure that each device will use</p>
+<ul>
+<li>a first key to decrypt firmware and configuration updates</li>
+<li>a second key to encrypt data sent to the analytics back-end</li>
+</ul>
+<p>in a way that these keys are automatically rotated every week in order
+to mitigate a potential breach.</p>
+<p>C2 can talks HTTP/JSON and gRPC/protobuf and have a CLI and a web GUI clients.</p>
+<p>The client library can be used without C2, by following our <a href="getting-started">Getting started</a> pages.</p>
+<h2 id="the-e4-client-library">The E4 client library</h2>
+<p>The E4 client library enables lightweight and secure communication once integrated into IoT devices.
+It plug itself right between your business logic and the device transport layer, making it easy to integrate.</p>
+<p>Please let us know in the <a href="https://github.com/teserakt-io/e4go/issues">issues</a> if you stumble upon a bug, see a possible enhancement, or have a comment on design.</p>
+<h2 id="features">Features</h2>
+<ul>
+<li>Works on ARM, AVR, MIPS, x86</li>
+<li>Minimal code and RAM footprint</li>
+<li>Strong cryptography</li>
+</ul>
+<h2 id="motivations">Motivations</h2>
+<p>Machine-to-machine communications are generally not peer-to-peer, but instead via a host that relays messages from a sender to one or more recipients.
+Such a class of protocols is <em>publish/subscribe</em> protocols, wherein &ldquo;published&rdquo; messages are labelled with a “topic”  and receiving devices “subscribe” to a topic in order to receive all messages labelled with the said topic.</p>
+<p>One such protocol, and allegedly the most popular one, is Message Queue Telemetry Transport (MQTT), wherein the relay server is called a “message broker”.
+In MQTT, communication security can be ensured by two means:</p>
+<ul>
+<li>
+<p><em>Client–server security</em>, using Transport Layer Security (TLS): With this technique, data can be protected (in particular, encrypted and authenticated) in transit between a client and a server, but the server must decrypt the data and can therefore read clear data and tamper with it. Client–server security therefore requires total trust in the server and in its security against third-party attackers.</p>
+</li>
+<li>
+<p><em>End-to-end security</em>: With this technique, data can be protected in transit all the way through from a client to another client, in such a way that the broker does not hold the cryptographic keys necessary to decrypt or tamper with the data. However, this technique is more complex to deploy than client–server encryption, because it requires 1) custom choices of encryption algorithms and 2) a process to distribute and manage keys.</p>
+</li>
+</ul>
+<p>To summarize, client–server security is insufficient to offer complete protection, while end-to-end security is hard to deploy and therefore is rarely used.
+A major challenge is indeed key management, or operations consistent of creation and update of security keys, as well as key revocation.</p>
+<h2 id="e4-in-a-nutshell">E4 in a nutshell</h2>
+<p>E4 simplifies the use and deployment of end-to-end security for MQTT and other IoT protocols, thanks to</p>
+<ol>
+<li>
+<p>A special MQTT client, called <em>command-and-control (C2)</em> remotely manages per-topic keys to other clients via MQTT messages, which are encrypted using clients&rsquo; unique keys. C2 stores all clients&rsquo; keys, all topic keys, as well as the list of topics associated to each client. C2 has a web interface and a REST API to perform key management operations.</p>
+</li>
+<li>
+<p>A clients software library to encrypt and decrypt messages as well as process C2's commands. Encryption and decryption can also be done in a local proxy service.</p>
+</li>
+</ol>
+<p>Keys can then be assigned to a group of clients in order to prevent clients that are not in this group from decrypting their messages.
+Keys can also be updated regularly, manually or automatically, to mitigate the risk of a compromise of a previous key.</p>
+<p>Key update can also be used to ensure that clients added to a group would not be able to decrypt previous messages, and that clients removed from a group will not longer be able to decrypt future messages in the group.</p>
+<p>Key benefits of E4 include:</p>
+<ul>
+<li>
+<p><strong>Unmodified broker</strong>: No modification to the broker is needed, brokers such as AWS IoT Core or Google Cloud IoT Core are supported out of the box.</p>
+</li>
+<li>
+<p><strong>Simple integration</strong>: E4 sits between the transport layer and the business logic, with almost no required interaction with these protocols.</p>
+</li>
+<li>
+<p><strong>Lightweight</strong>: E4 is optimized for platforms with constrained performance profile, such as embedded GNU/Linux or AVR-based platforms.</p>
+</li>
+<li>
+<p><strong>Built-in key management</strong>: A server called C2 (command-and-control) provides a web UI and a REST API to manage per-topic keys. C2 acts as an MQTT client, hence communications between C2 and devices occur via a broker.</p>
+</li>
+<li>
+<p><strong>Protocol-agnostic</strong>: E4 was designed with MQTT in mind, but can be adapted to other transport protocols (AMQP, CoAP, and so on). Specifically, the client library has nothing specific to MQTT besides its use of the topics semantics, common to other pubsub protocols.</p>
+</li>
+</ul>
+<p>Security features of E4 are:</p>
+<ul>
+<li>
+<p><strong>Full protection</strong>: E4 protects the confidentiality and integrity of messages, and prevents replay attacks.</p>
+</li>
+<li>
+<p><strong>Key agility</strong>: Keys are unique per MQTT topic, and can be changed/rotated at any time to provide forward and backward secrecy.</p>
+</li>
+<li>
+<p><strong>Group communications</strong>: Ad hoc groups of devices communicating securely with each other can be created.</p>
+</li>
+<li>
+<p><strong>Post-quantum</strong>: E4's security would not be altered by a quantum computer, thanks to its use of 256-bit symmetric cryptography security.</p>
+</li>
+<li>
+<p><strong>Secure defaults</strong>: E4 is opinionated, so that users don't need to pick correct secure options. The protocol is built on high security from the ground up.</p>
+</li>
+</ul>
+<p>Security limitations of E4 are:</p>
+<ul>
+<li>
+<p><strong>Single point of failure</strong>: C2 holds the client and topic keys, and can therefore impersonate any client, and decrypt any encrypted message. This can be mitigated by storing keys in encrypted form and storing the decryption key in an HSM, or in other some software vault technology. C2 should only be accessible after proper authentication (and preferably multi-factor authentication), and all its operations must be logged.</p>
+</li>
+<li>
+<p><strong>Risk from untrusted clients</strong>: A malicious client may ignore a <code>RemoveTopic</code> command and keep the decryption keys in their table. To ensure that a client loses access to a given topic, the topic key must therefore be updated on all clients.</p>
+</li>
+</ul>
+<h2 id="e4-modes">E4 modes</h2>
+<p>E4 comes in two main modes:</p>
+<ul>
+<li>
+<p>Symmetric-key crypto (<strong>SK mode</strong>), which does not use public-key cryptography and is therefore the lightest in terms of computation, code size, message overhead. Like with mobile telecommunication, TLS PSK, or Kerberos, this mode only employs symmetric-key primitives and establishes trust via pre-shared keys.</p>
+</li>
+<li>
+<p>Public-key crypto (<strong>PK mode</strong>), which uses public-key key agreement and digital signatures, which provides non-repudiation and mitigates the risk of database compromise, by storing clients&rsquo; public keys rather than shared symmetric keys. Like PKI-based systems, this mode establishes trust by pre-provisioning trusted public keys of other identities (which can be seen as simplified certificates in E4).</p>
+</li>
+</ul>
+<p>In the specification below, parts specific to a mode are signalled with &ldquo;<strong>[SK mode]</strong>&rdquo; or &ldquo;<strong>[PK mode]</strong>&quot;.</p>
+<p>E4 in addition supports variants of the above mode:</p>
+<ul>
+<li>
+<p><strong>FIPS mode</strong>, which uses only algorithms that are compliant with FIPS 140-2. Both the symmetric-key and public-key mode can be instantiated in FIPS mode.</p>
+</li>
+<li>
+<p><strong>Fast mode</strong>, which accelerates symmetric-key primitives by making fewer rounds, following the analysis from the Too Much Crypto paper: in this mode, the AES-256 core makes 10 rounds instead of 12, and SHA-3 makes 10 rounds instead of 24. Note that this is incompatible with FIPS mode, as these versions are no longer FIPS 140-2-compliant.</p>
+</li>
+<li>
+<p><strong>Post-quantum mode</strong>, which is a variant of the public-key mode that uses post-quantum primitives instead of primitives broken by quantum algorithms.</p>
+</li>
+</ul>
+<p>These modes are defined in the section <a href="protocol-variants">Protocol Variants</a> below.</p>
+<nav class="pagination"><a class="nav nav-next" href="/specifications/" title="Specifications">Next - Specifications <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><div class="edit-meta">
+Last updated on 27 Sep 2019
+
+
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/_index.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class="active"><a href="/">Home</a></li>
+
+<li class=""><a href="/specifications/">Specifications</a>
+<ul class="">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class=""><a href="/getting-started/">Getting Started</a>
+<ul class="">
+
+<li class=""><a href="/getting-started/go/">Go</a>
+<ul class="">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Client specification - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/specifications/client-specification/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Client specification</h1><ul>
+<li><a href="#client-internal-state">Client internal state</a></li>
+<li><a href="#client-local-api-rx">Client local API (rx)</a>
+<ul>
+<li><a href="#protect-messagemessage-topic">protect_message(message, topic)</a></li>
+<li><a href="#unprotectmessage-topic">unprotect(message, topic)</a></li>
+</ul>
+</li>
+<li><a href="#client-remote-api-rx">Client remote API (rx)</a>
+<ul>
+<li><a href="#removetopictopichash">RemoveTopic(topichash)</a></li>
+<li><a href="#resettopics">ResetTopics()</a></li>
+<li><a href="#setidkeykey">SetIdKey(key)</a></li>
+<li><a href="#settopickeytopichash-key">SetTopicKey(topichash, key)</a></li>
+<li><a href="#removepubkeyid-pk-mode">RemovePubKey(id) [PK mode]</a></li>
+<li><a href="#resetpubkeys-pk-mode">ResetPubKeys() [PK mode]</a></li>
+<li><a href="#setpubkeyid-pubkey-pk-mode">SetPubKey(id, pubkey) [PK mode]</a></li>
+<li><a href="#setc2keypubkey-pk-mode">SetC2Key(pubkey) [PK mode]</a></li>
+</ul>
+</li>
+<li><a href="#key-transition-logic">Key transition logic</a></li>
+</ul>
+<p>E4 clients are for example sensors devices, vehicles, mobile phones, backend servers or any type of device that participates in the communication.</p>
+<p>In order to receive commands from the C2, a client's MQTT service must subscribe to the topic <code>E4/&lt;id&gt;</code>, with their own id in hexadecimal (lower-case).</p>
+<h2 id="client-internal-state">Client internal state</h2>
+<p>E4 clients have a state composed of:</p>
+<ul>
+<li>
+<p><code>id</code>, a 16-byte unique identifier (constant).</p>
+</li>
+<li>
+<p><code>topickeys</code>, a table mapping topic hashes (as 32-byte strings) to 32-byte keys, initially either empty or pre-filled.</p>
+</li>
+<li>
+<p>A key unique per <code>id</code>:</p>
+<ul>
+<li><strong>[SK mode]</strong>: <code>key</code>, a 32-byte symmetric key, shared with C2.</li>
+<li><strong>[PK mode]</strong>: <code>key</code>, a 32-byte Ed25519 private key, whose corresponding public key is shared with C2.</li>
+</ul>
+</li>
+<li>
+<p><strong>[PK mode]</strong>: <code>clientkeys</code>, a table mapping client ids to their respective Ed25519 public key.</p>
+</li>
+<li>
+<p><strong>[PK mode]</strong>: <code>c2key</code>, the 32-byte Curve25519 public key of C2.</p>
+</li>
+</ul>
+<p>Note that <code>topickeys</code> lists topic hashes rather than topic names.
+This is in order to work with fixed-length values rather than variable-size, potentially long (up to 65535 bytes) topic names.
+This also minimizes the length of commands transmitted by C2.</p>
+<h2 id="client-local-api-rx">Client local API (rx)</h2>
+<p>Clients expose the following APIs to the client application:</p>
+<h3 id="protect-messagemessage-topic"><code>protect_message(message, topic)</code></h3>
+<ul>
+<li>
+<p><em>When</em>: For every message to be transmitted over MQTT by the application, under a given topic.</p>
+</li>
+<li>
+<p><em>Returns</em>: A protected message, or a <code>TopicKeyMissing</code> error.</p>
+</li>
+<li>
+<p><em>How</em>: If a key exists in <code>topickeys</code> for the hash of the given topic, then the message is protected using this key and the protected message is returned.</p>
+</li>
+</ul>
+<p>The protected message is always slightly longer than the plaintext, because it includes the initial value, a timestamp, and in <strong>[PK mode]</strong> a signature.</p>
+<p>If a <code>TopicKeyMissing</code> error is returned, by default the message is discarded (strict encryption).
+But an application can change this policy if the business logic requires it, and choose to send unprotected messages when no topic key is known.</p>
+<h3 id="unprotectmessage-topic"><code>unprotect(message, topic)</code></h3>
+<ul>
+<li>
+<p><em>When</em>: For every payload received under a topic that is not <code>E4/&lt;id&gt;</code>, that is, all messages except commands from C2.</p>
+</li>
+<li>
+<p><em>Returns</em>: A message or an error in <code>InvalidProtectedLen</code>, <code>InvalidSignature</code>, <code>NotAuthentic</code>, <code>TimestampInFuture</code>, <code>TimestampTooOld</code>,  <code>TooShortCiphertext</code>, <code>TopicKeyMissing</code>.</p>
+</li>
+<li>
+<p><em>How</em>: <code>unprotect()</code> handles both application messages and control messages:</p>
+<ul>
+<li>If the topic is <em>not</em> <code>E4/&lt;id&gt;</code>: In <strong>[PK mode]</strong>, the signature of the message is first verified. Then, for both modes: If a key exists for the hash of given topic, then the message is verified using this key. Verification includes verification of the timestamp, then decryption and verification of the tag. Upon successful verification, the unprotected message is returned to the application, otherwise the message is discarded.</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>If the topic is <code>E4/&lt;id&gt;</code> (control message): The client verifies that the timestamp and discards the message if it is too old, otherwise the message is decrypted and authenticated using the client's <code>key</code> in <strong>[SK mode]</strong> or the Diffie-Hellman shared secret in <strong>[PK mode]</strong>, from the C2's public key and the client's private key.</li>
+</ul>
+<p>Verification of the timestamp consists in checking that the timestamp in the message received is no older that a prescribed value (for example, 10 minutes).
+The maximal delay authorized will depend on the use case, and is a parameter of E4.</p>
+<p>If a <code>TopicKeyMissing</code> error is returned, by default the message is discarded (strict encryption).
+But an application can change this policy if the business logic requires it, and choose to received the process the message when no topic key is known.</p>
+<h2 id="client-remote-api-rx">Client remote API (rx)</h2>
+<p>The client remote API is exposed via C2 commands, which are protected using the client's key (symmetric key or public key, depending on the mode).</p>
+<p>After being successfully unprotected, the following commands are supported by a client, given in the format <code>CommandName(parameters)</code>.
+We also provide the encoding of the commands, where each command is prefixed by a 1-byte command identifier.
+In the encoding format, byte lengths are given in parentheses.</p>
+<p>Additional user specific extensions and commands can be added to the protocol if needed.</p>
+<h3 id="removetopictopichash"><code>RemoveTopic(topichash)</code></h3>
+<p>Removes the given topic hash and key from the client's <code>topickeys</code> table.</p>
+<p>Encoding: <code>0x00 | topicHash (32)</code></p>
+<h3 id="resettopics"><code>ResetTopics()</code></h3>
+<p>Empties the client's <code>topickeys</code> table.</p>
+<p>Encoding: <code>0x01</code>.</p>
+<h3 id="setidkeykey"><code>SetIdKey(key)</code></h3>
+<p>Updates the client's key with the key included in the command, overwriting the current value.</p>
+<p>In <strong>[SK mode]</strong>, this sets a symmetric key, and in <strong>[PK mode]</strong> this sets a private key.</p>
+<p>Encoding (<strong>[SK mode]</strong>): <code>0x02 | key (32)</code>.</p>
+<p>Encoding (<strong>[PK mode]</strong>): <code>0x02 | key (64)</code>.</p>
+<p>In <strong>[PK mode]</strong>, this command may be used to rotate client identity
+keys when the client's pseudorandom generator is not trusted, and such
+that the C2 only keeps the public key, and discards the private key.</p>
+<h3 id="settopickeytopichash-key"><code>SetTopicKey(topichash, key)</code></h3>
+<p>Adds the given topic hash and key to the client's <code>topickeys</code> table, erasing any previous entry.</p>
+<p>Encoding: <code>0x03 | key (32) | topichash (32)</code></p>
+<p>Here <code>topichash</code> is a 32-byte hash of the topic.
+This ensures that the commands are of short, constant size.</p>
+<h3 id="removepubkeyid-pk-mode"><code>RemovePubKey(id)</code> [PK mode]</h3>
+<p>Removes the given client id and associated public key from the client's <code>clientkeys</code> table.</p>
+<p>Encoding: <code>0x04 | id (16)</code></p>
+<h3 id="resetpubkeys-pk-mode"><code>ResetPubKeys()</code> [PK mode]</h3>
+<p>Empties the client's <code>clientkeys</code>  table.</p>
+<p>Encoding: <code>0x05</code></p>
+<h3 id="setpubkeyid-pubkey-pk-mode"><code>SetPubKey(id, pubkey)</code> [PK mode]</h3>
+<p>Adds the given id and public key to the client's <code>clientkeys</code> table, erasing any previous entry.</p>
+<p>Encoding: <code>0x06 | id (16) | pubkey (32) )</code></p>
+<h3 id="setc2keypubkey-pk-mode"><code>SetC2Key(pubkey)</code> [PK mode]</h3>
+<p>Instructs the device to replace the current C2 public key with the newly transmitted one (must be use with care).</p>
+<p>Encoding: <code>0x07 | pubkey (32)</code></p>
+<p>This command should be use with great care, and in such a way that devices are unlikely to miss the message. The new C2 key should also be recoverable at any time, for example through instantaneous backups of the private key generated.</p>
+<h2 id="key-transition-logic">Key transition logic</h2>
+<p>When a new topic key is sent to multiple devices, not all of them will received it simultaneously, because some might be offline, different network latency, or unreceived C2 messages.</p>
+<p>Risks are therefore that the first devices to switch to the new key be unable to decrypt messages sent with the previous key, and that devices switching late to the new key be unable to decrypt messages sent with new key before they received it.</p>
+<p>As a mitigation, E4 clients use a <em>key transition</em> mechanism, whereby devices switch to a new key while keeping the old key during a given transition period.</p>
+<p>The client must then behave as follows:</p>
+<p>When receiving a <code>SetTopicKey</code> command, the previous key followed by its encoded timestamp is added to the client's <code>topickey</code> under the hash of the topic's hash, erasing any previous entry.</p>
+<p>When receiving a message under the given topic, the device attempts to decrypt it with the current key, and if decryption fails it tries with the old key if and only if 1) it exists 2) the timestamp is not older than a given transition period (unless the device has no reliable clock, in which case it ignores the timestamp).</p>
+<p>This mechanism guarantees that if a device that  received the new key gets a message encrypted with the old one,  it will still be able to unprotect it.</p>
+<p>If a client  receives a <code>SetTopicKey</code> command including the same key as the current one, the <code>topickey</code> table is not modified, and therefore the client retains the previous (distinct) key.</p>
+<hr>
+<p>With the above strategy, we may want to prioritize the key transmission to devices receiving messages first, over devices emitting messages to minimize decryption errors due to invalid key. We can define 3 devices <em>type</em>:</p>
+<ul>
+<li>Publishers: only send messages</li>
+<li>Consumers: only receive messages</li>
+<li>Publishers &amp; Consumers: send and receive messages</li>
+</ul>
+<p>Adding this type to every devices in C2 would allow to dispatch a new key in this order:
+Consumers -&gt; Publishers &amp; Consumers -&gt; Publishers</p>
+<p>This could prevent most of decryption errors by not having the right key, except in scenarios having multiple <em>Publishers &amp; Consumers</em> devices communicating together.</p>
+<hr>
+<div class="edit-meta">
+
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/specifications/client-specification.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/specifications/integration/" title="Integration"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Integration</a>
+<a class="nav nav-next" href="/specifications/c2-specification/" title="C2 specification">Next - C2 specification <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class="parent"><a href="/specifications/">Specifications</a>
+<ul class="sub-menu">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class="active"><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class=""><a href="/getting-started/">Getting Started</a>
+<ul class="">
+
+<li class=""><a href="/getting-started/go/">Go</a>
+<ul class="">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

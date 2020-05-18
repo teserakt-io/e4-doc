@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Basic application setup - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/getting-started/go/1-basic-app/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Basic application setup</h1><p>Let's start by creating a basic Go client application. It will:</p>
+<ol>
+<li>Read a client identifier from command line flags</li>
+<li>Connect to a MQTT broker (we'll use the public <code>mqtt.eclipse.org:1338</code>)</li>
+<li>Subscribe to the MQTT topic <code>/e4go/demo/messages</code> and print any incoming messages to stdout</li>
+<li>Wait for user input on stdin, so that the user can type in a message and press enter. Messages will then be published on the peer MQTT topic <code>/e4go/demo/messages</code>.</li>
+</ol>
+<p>Let's first move to an empty directory, and create our application file:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ mkdir -p e4demo <span style="color:#719e07">&amp;&amp;</span> <span style="color:#cb4b16">\
+</span><span style="color:#cb4b16"></span>	<span style="color:#b58900">cd</span> e4demo <span style="color:#719e07">&amp;&amp;</span> <span style="color:#cb4b16">\
+</span><span style="color:#cb4b16"></span>	go mod init e4demo <span style="color:#719e07">&amp;&amp;</span> <span style="color:#cb4b16">\
+</span><span style="color:#cb4b16"></span>	touch e4demo.go
+</code></pre></div><p>Now the code:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#719e07">package</span> main
+
+<span style="color:#719e07">import</span> (
+	<span style="color:#2aa198">&#34;bufio&#34;</span>
+	<span style="color:#2aa198">&#34;flag&#34;</span>
+	<span style="color:#2aa198">&#34;fmt&#34;</span>
+	<span style="color:#2aa198">&#34;os&#34;</span>
+	<span style="color:#2aa198">&#34;time&#34;</span>
+
+	mqtt <span style="color:#2aa198">&#34;github.com/eclipse/paho.mqtt.golang&#34;</span>
+)
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">main</span>() {
+	<span style="color:#586e75">// 1 - Read a client identifier from a command line flag
+</span><span style="color:#586e75"></span>	<span style="color:#268bd2">var</span> clientName <span style="color:#dc322f">string</span>
+	flag.<span style="color:#268bd2">StringVar</span>(<span style="color:#719e07">&amp;</span>clientName, <span style="color:#2aa198">&#34;client&#34;</span>, <span style="color:#2aa198">&#34;&#34;</span>, <span style="color:#2aa198">&#34;the client name&#34;</span>)
+	flag.<span style="color:#268bd2">Parse</span>()
+
+	<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(clientName) <span style="color:#719e07">==</span> <span style="color:#2aa198">0</span> {
+		<span style="color:#b58900">panic</span>(<span style="color:#2aa198">&#34;-client is required&#34;</span>)
+	}
+
+	<span style="color:#586e75">// 2 - Connect to a MQTT broker (we&#39;ll use the public mqtt.eclipse.org:1338)
+</span><span style="color:#586e75"></span>	brokerEndpoint <span style="color:#719e07">:=</span> <span style="color:#2aa198">&#34;mqtt.eclipse.org:1883&#34;</span>
+	mqttClient, err <span style="color:#719e07">:=</span> <span style="color:#268bd2">initMQTT</span>(brokerEndpoint, clientName)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to init mqtt client: %v&#34;</span>, err))
+	}
+	fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&gt; connected to %s\n&#34;</span>, brokerEndpoint)
+
+	<span style="color:#586e75">// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
+</span><span style="color:#586e75"></span>	messageTopic <span style="color:#719e07">:=</span> <span style="color:#2aa198">&#34;/e4go/demo/messages&#34;</span>
+	token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Subscribe</span>(messageTopic, <span style="color:#2aa198">1</span>, <span style="color:#268bd2">func</span>(_ mqtt.Client, msg mqtt.Message) {
+		fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&lt; received raw message on %s: %s\n&#34;</span>, msg.<span style="color:#268bd2">Topic</span>(), msg.<span style="color:#268bd2">Payload</span>())
+	})
+	timeout <span style="color:#719e07">:=</span> time.Second
+	<span style="color:#719e07">if</span> !token.<span style="color:#268bd2">WaitTimeout</span>(timeout) {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to subscribe to MQTT topic: %v\n&#34;</span>, token.<span style="color:#268bd2">Error</span>()))
+	}
+	fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&gt; subscribed to MQTT topic %s\n&#34;</span>, messageTopic)
+
+	<span style="color:#586e75">// 4 - Wait for user input on stdin and publish messages
+</span><span style="color:#586e75"></span>	<span style="color:#586e75">// on the peer MQTT topic `/e4go/demo/messages` once user press the enter key.
+</span><span style="color:#586e75"></span>	fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&gt; type anything and press enter to send the message to %s:\n&#34;</span>, messageTopic)
+	scanner <span style="color:#719e07">:=</span> bufio.<span style="color:#268bd2">NewScanner</span>(os.Stdin)
+	<span style="color:#719e07">for</span> scanner.<span style="color:#268bd2">Scan</span>() {
+		message <span style="color:#719e07">:=</span> scanner.<span style="color:#268bd2">Text</span>()
+		<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(message) <span style="color:#719e07">==</span> <span style="color:#2aa198">0</span> { <span style="color:#586e75">// Skip empty messages
+</span><span style="color:#586e75"></span>			<span style="color:#719e07">continue</span>
+		}
+
+		<span style="color:#719e07">if</span> token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Publish</span>(messageTopic, <span style="color:#2aa198">1</span>, <span style="color:#cb4b16">true</span>, message); token.<span style="color:#268bd2">Error</span>() <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+			fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&gt; failed to publish message: %v\n&#34;</span>, token.<span style="color:#268bd2">Error</span>())
+			<span style="color:#719e07">continue</span>
+		}
+
+		fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;&gt; message published successfully&#34;</span>)
+	}
+}
+</code></pre></div><p>We can now add our <code>initMQTT</code> function:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#268bd2">func</span> <span style="color:#268bd2">initMQTT</span>(brokerEndpoint, clientID <span style="color:#dc322f">string</span>) (mqtt.Client, <span style="color:#dc322f">error</span>) {
+	opts <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClientOptions</span>()
+	opts.<span style="color:#268bd2">AddBroker</span>(brokerEndpoint)
+	opts.<span style="color:#268bd2">SetClientID</span>(clientID)
+	opts.<span style="color:#268bd2">SetCleanSession</span>(<span style="color:#cb4b16">true</span>)
+
+	mqttClient <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClient</span>(opts)
+	timeout <span style="color:#719e07">:=</span> time.Second
+	<span style="color:#719e07">if</span> token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Connect</span>(); token.<span style="color:#268bd2">WaitTimeout</span>(timeout) <span style="color:#719e07">&amp;&amp;</span> token.<span style="color:#268bd2">Error</span>() <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#719e07">return</span> <span style="color:#cb4b16">nil</span>, token.<span style="color:#268bd2">Error</span>()
+	}
+
+	<span style="color:#719e07">return</span> mqttClient, <span style="color:#cb4b16">nil</span>
+}
+</code></pre></div><p>And we're done. We now have a basic application able to send and receive message over MQTT.</p>
+<p><a href="../e4demo-step1.go">Click here to download the full source at this point</a></p>
+<p>We can now try it and exchange messages between <code>alice</code> and <code>bob</code>.</p>
+<p>Run in a first terminal and start an instance for <code>alice</code>, and type in the message for <code>bob</code>:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">$ go run e4demo.go -client alice
+&gt; connected to mqtt.eclipse.org:1883
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+Hello, I&#39;m alice, and this is a secret message for bob!
+&gt; message published successfully
+</code></pre></div><p>And start a second one in another terminal for <code>bob</code>:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">$ go run e4demo.go -client bob
+&gt; connected to mqtt.eclipse.org:1883
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&lt; received raw message on /e4go/demo/messages: Hello, I&#39;m alice, and this is a secret message for bob!
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+</code></pre></div><p><code>alice</code> and <code>bob</code> can now exchange messages between each others.
+But the evil <code>eve</code> can sneak in, subscribe to the topic, and read / write messages:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">$ go run e4demo.go -client eve
+&gt; connected to mqtt.eclipse.org:1883
+&lt; received raw message on /e4go/demo/messages: Hello, I&#39;m alice, and this is a secret message for bob!
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+</code></pre></div><p>Let's jump to the next section and see how E4 can keep those message secret!</p>
+<div class="edit-meta">
+Last updated on 27 Sep 2019
+
+
+<br>
+Published on 6 Sep 2019
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/getting-started/go/1-basic-app.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/getting-started/go/" title="Go"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Go</a>
+<a class="nav nav-next" href="/getting-started/go/2-e4-integration/" title="Protecting messages with E4">Next - Protecting messages with E4 <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class=""><a href="/specifications/">Specifications</a>
+<ul class="">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class="parent"><a href="/getting-started/">Getting Started</a>
+<ul class="sub-menu">
+
+<li class="parent"><a href="/getting-started/go/">Go</a>
+<ul class="sub-menu">
+<li class="active"><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

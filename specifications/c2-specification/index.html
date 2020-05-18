@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>C2 specification - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/specifications/c2-specification/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>C2 specification</h1><ul>
+<li><a href="#c2-internal-state">C2 internal state</a></li>
+<li><a href="#c2-api">C2 API</a>
+<ul>
+<li><a href="#new_clientid-key-local">new_client(id, key) [local]</a></li>
+<li><a href="#remove_clientid--local">remove_client(id)  [local]</a></li>
+<li><a href="#new_topic_clientid-topic-remote">new_topic_client(id, topic) [remote]</a></li>
+<li><a href="#remove_topic_clientid-topic-remote">remove_topic_client(id, topic) [remote]</a></li>
+<li><a href="#reset_clientid-remote">reset_client(id) [remote]</a></li>
+<li><a href="#new_topictopic-local">new_topic(topic) [local]</a></li>
+<li><a href="#remove_topictopic-local">remove_topic(topic) [local]</a></li>
+<li><a href="#new_client_keyid-local--remote-sk-mode">new_client_key(id) [local &amp; remote, SK mode]</a></li>
+<li><a href="#reset_client_pubkeysid-remote-pk-mode">reset_client_pubkeys(id) [remote, PK mode]</a></li>
+<li><a href="#send_client_pubkeyiddst-idsrc-remote-pk-mode">send_client_pubkey(iddst, idsrc) [remote, PK mode]</a></li>
+<li><a href="#remove_client_pubkeyiddst-idsrc-remote-pk-mode">remove_client_pubkey(iddst, idsrc) [remote, PK mode]</a></li>
+<li><a href="#new_c2_key-local--remote-pk-mode">new_c2_key() [local &amp; remote, PK mode]</a></li>
+</ul>
+</li>
+<li><a href="#c2-human-interface">C2 human interface</a></li>
+</ul>
+<p>C2 (command-and-control) is the host that manages clients&rsquo; keys remotely, by sending commands to clients over MQTT.</p>
+<p>E4's C2 holds client keys and topic keys, and manages clients by sending them commands.</p>
+<h2 id="c2-internal-state">C2 internal state</h2>
+<p>C2's state is composed of:</p>
+<ul>
+<li>
+<p><code>clientkeys</code>, a map from client identities (as 16-byte strings) to their keys (symmetric keys or public keys, depending on the mode).</p>
+</li>
+<li>
+<p><code>topickeys</code>, a map from topics (as strings) to 32-byte topics keys.</p>
+</li>
+</ul>
+<p>This state is typically stored as a database.</p>
+<p>Unlike clients whose actions are triggered by events (commands received, messages going in and out), C2's actions can be triggered by an operator, via a web UI or command-line interface, or by another service via C2's HTTP or gRPC APIs, for example by E4's automation engine.</p>
+<h2 id="c2-api">C2 API</h2>
+<p>Operations performed by C2 are of three types</p>
+<ul>
+<li>
+<p>Operations modifying the local state (local <code>clientkeys</code> and <code>topickeys</code> tables)</p>
+</li>
+<li>
+<p>Operations modifying clients&rsquo; states (remote <code>key</code> value and <code>topickeys</code> table), by sending a command as an MQTT messages (with QoS 2).</p>
+</li>
+<li>
+<p>Operations modifying both the local state and clients&rsquo; states</p>
+</li>
+</ul>
+<p>This is just the minimal set of functionalities that the C2 API can implement, via HTTP and/or gRPC interfaces.</p>
+<p>Other helper endpoints can be added, as needed by other components (command-line client, automation engine, etc.).</p>
+<p>The API might also be extended by having endpoints supporting batch commands (for example, to reset multiple clients with a single request).</p>
+<h3 id="new-clientid-key-local"><code>new_client(id, key)</code> [local]</h3>
+<p>Adds <code>(id, key)</code> to <code>clientkeys</code>; overwrite the existing key if <code>id</code> already exists. Depending on the mode, <code>key</code> is either a symmetric key or a public key.</p>
+<h3 id="remove-clientid--local"><code>remove_client(id)</code>  [local]</h3>
+<p>Removes <code>id</code> from C2's <code>clientkeys</code> map; fails if <code>id</code> does not exist.</p>
+<h3 id="new-topic-clientid-topic-remote"><code>new_topic_client(id, topic)</code> [remote]</h3>
+<p>Sends the key of <code>topic</code> to the <code>id</code> using a <code>SetTopicKey</code> command; fails if no key is known for <code>topic</code> or for <code>id</code>.</p>
+<h3 id="remove-topic-clientid-topic-remote"><code>remove_topic_client(id, topic)</code> [remote]</h3>
+<p>Removes the given topic from the client's <code>topickeys</code> table using a <code>RemoveTopic</code> command.</p>
+<h3 id="reset-clientid-remote"><code>reset_client(id)</code> [remote]</h3>
+<p>Resets the <code>topickeys</code> table of the given client, using a <code>ResetTopics</code> command.</p>
+<h3 id="new-topictopic-local"><code>new_topic(topic)</code> [local]</h3>
+<p>A random key is generated for <code>topic</code>, erasing any previous entry in <code>topickeys</code>. The key is then distributed to all clients that have the key for this topic.</p>
+<h3 id="remove-topictopic-local"><code>remove_topic(topic)</code> [local]</h3>
+<p>If the given topic is in <code>topickeys</code>, then the topic and its key are removed from it; fails if <code>topic</code> does not exist.</p>
+<h3 id="new-client-keyid-local--remote-sk-mode"><code>new_client_key(id)</code> [local &amp; remote, SK mode]</h3>
+<p>If <code>id</code> exists, random key is generated for <code>id</code> and sent to it using a <code>SetIdKey</code> command. The <code>(id, key)</code> pair is then added to C2's <code>clientkeys</code>.</p>
+<p>A risk when updating the client key is the client being &ldquo;in the dark&rdquo; if it did not receive the  key update.</p>
+<p>Here there is no need for the client to retain the old key.</p>
+<p>However, C2 may need to retain the previous key, but this only shifts the DoS problem to the next generation of key update, unless C2 can get a confirmation that the client registered the new key.</p>
+<p>Depending on the use case and associated risk, we can implement a failure recovery mechanism, whereby clients can recover from desynchronized keys.</p>
+<h3 id="reset-client-pubkeysid-remote-pk-mode"><code>reset_client_pubkeys(id)</code> [remote, PK mode]</h3>
+<p>Resets the <code>clientkeys</code> table of the given client, using a <code>ResetPubKeys</code> command.</p>
+<h3 id="send-client-pubkeyiddst-idsrc-remote-pk-mode"><code>send_client_pubkey(iddst, idsrc)</code> [remote, PK mode]</h3>
+<p>Sends the public key of <code>idsrc</code> to <code>iddst</code>, to add it to its <code>clientkeys</code> table.</p>
+<p>Note that when a client is added to a topic, other devices from this topic don't automatically receive the client's public key. This would be necessary when emulating group messaging (many-to-many communications), but not in many-to-one network. In the former case, public key sharing can be automated through simple scripts. This behavior may be modified according to the users&rsquo; needs.</p>
+<h3 id="remove-client-pubkeyiddst-idsrc-remote-pk-mode"><code>remove_client_pubkey(iddst, idsrc)</code> [remote, PK mode]</h3>
+<p>Remove the public key of <code>idsrc</code> to <code>iddst</code>, to add it to its <code>clientkeys</code> table.</p>
+<h3 id="new-c2-key-local--remote-pk-mode"><code>new_c2_key()</code> [local &amp; remote, PK mode]</h3>
+<p>A random key pair is generated for C2 and its public key is sent to all clients using a <code>SetC2Key</code> command. The new key pair is then used by C2 and replaces the previous one.</p>
+<h2 id="c2-human-interface">C2 human interface</h2>
+<p>C2 human interfaces can be command-line clients or a web-based GUI, using the API to translate user actions into C2 operations.</p>
+<p>To facilitate manual operation, the following user-friendly mechanisms can be implemented:</p>
+<ul>
+<li>
+<p><code>id</code> can be generated from a string alias, as a hash of the alias</p>
+</li>
+<li>
+<p>The key or key pair can be derived from a passphrase, using a password-based key derivation function</p>
+</li>
+</ul>
+<div class="edit-meta">
+
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/specifications/c2-specification.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/specifications/client-specification/" title="Client specification"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Client specification</a>
+<a class="nav nav-next" href="/specifications/messages-encoding/" title="Message encoding">Next - Message encoding <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class="parent"><a href="/specifications/">Specifications</a>
+<ul class="sub-menu">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class="active"><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class=""><a href="/getting-started/">Getting Started</a>
+<ul class="">
+
+<li class=""><a href="/getting-started/go/">Go</a>
+<ul class="">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Message encoding - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/specifications/messages-encoding/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Message encoding</h1><ul>
+<li><a href="#client-and-c2-messages-encoding-sk-mode">Client and C2 messages encoding [SK mode]</a></li>
+<li><a href="#client-messages-encoding-pk-mode">Client messages encoding [PK mode]</a></li>
+<li><a href="#c2-messages-encoding-pk-mode">C2 messages encoding [PK mode]</a></li>
+</ul>
+<p>This section describes the format of protected messages and how they are (de)serialized:</p>
+<ul>
+<li>
+<p>Messages exchanged between E4 clients under an arbitrary topic for which keys have been provisioned.</p>
+</li>
+<li>
+<p>Messages sent from C2 to clients. These messages contain a command whose format is specified below.</p>
+</li>
+</ul>
+<p>The QoS of messages sent by clients is defined by the application, and does not affect E4's encryption/decryption operations, which are stateless.
+However, messages sent by C2 (that is, commands) should be sent with QoS 2, to ensure that a command is delivered exactly once.</p>
+<h2 id="client-and-c2-messages-encoding-sk-mode">Client and C2 messages encoding [SK mode]</h2>
+<p>Given an <code>n</code>-byte clear message, a protected message has the following format, with byte lengths in parentheses:</p>
+<pre><code>Timestamp (8) | IV (16) | Ciphertext (n)
+</code></pre><p>where:</p>
+<ul>
+<li>
+<p><code>Timestamp</code> is current time in seconds (since Unix epoch) little-endian encoded used for replay protection.</p>
+</li>
+<li>
+<p><code>SIV</code> is the initial value computed during AES-SIV encryption, taking the timestamp as associated data,</p>
+</li>
+<li>
+<p><code>Ciphertext</code> is the encrypted message, of same length as the plaintext.</p>
+</li>
+</ul>
+<p>The overhead is therefore of 24 bytes per message.</p>
+<p>When C2 sends a message, the plaintext is a command aimed for a specific client, and the message is sent to the client's control topic.</p>
+<p>Whereas clients only have control on the payload sent in an MQTT packet, C2 can also control the MQTT parameters and in particular QoS.</p>
+<h2 id="client-messages-encoding-pk-mode">Client messages encoding [PK mode]</h2>
+<p>Compared to SK mode, in PK mode, the <code>protect_message()</code> function signs the message using Ed25519:</p>
+<p>The protected message format is thus augmented with</p>
+<ul>
+<li>
+<p><code>id</code>, the identifier of the sender (since a protocol such as MQTT does not include the sender ID with the message).</p>
+</li>
+<li>
+<p><code>sig</code>, the 64-byte signature of the ciphertext.</p>
+</li>
+</ul>
+<pre><code>Timestamp (8) | id (16) | sig (64) | IV (16) | Ciphertext (n)
+</code></pre><p>The overhead is therefore of 104 bytes per message.</p>
+<p><code>unprotect()</code> will then verify the signature if the receiver knows the public key of the sender, identified from <code>id</code>.
+Depending on the application, the receiver may either discard the message or process it if the signing key is not known.
+When encrypting the message, the additional data is the timestamp.</p>
+<h2 id="c2-messages-encoding-pk-mode">C2 messages encoding [PK mode]</h2>
+<p>To protect C2 commands sent to client devices, we used public-key authenticated encryption similar to what NacCl's <code>crypto_box</code> <a href="https://nacl.cr.yp.to/box.html">is doing</a>, namely:</p>
+<ul>
+<li>
+<p>Multiply the sender's private scalar with the recipient's public point, following the X25519 definition</p>
+</li>
+<li>
+<p>Hash the resulting point coordinates fixed-length encoding with SHA-3-256</p>
+</li>
+<li>
+<p>Use the 256-bit result as a symmetric key with the specified authenticated encryption logic.</p>
+</li>
+</ul>
+<p>The protected message format can be left unchanged compared to the SK mode, since the client will already know that the message is coming from C2, and therefore will know what key to used.</p>
+<p>Note that the client precompute and store the shared key, since it will not change unless C2 changes its key pair.</p>
+<div class="edit-meta">
+
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/specifications/messages-encoding.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/specifications/c2-specification/" title="C2 specification"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - C2 specification</a>
+<a class="nav nav-next" href="/specifications/cryptography-primitives/" title="Cryptography primitives">Next - Cryptography primitives <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class="parent"><a href="/specifications/">Specifications</a>
+<ul class="sub-menu">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class="active"><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class=""><a href="/getting-started/">Getting Started</a>
+<ul class="">
+
+<li class=""><a href="/getting-started/go/">Go</a>
+<ul class="">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

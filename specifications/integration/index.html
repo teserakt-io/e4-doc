@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Integration - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/specifications/integration/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Integration</h1><ul>
+<li><a href="#client-integration">Client integration</a></li>
+<li><a href="#server-integration-c2">Server integration (C2)</a>
+<ul>
+<li><a href="#services">Services</a></li>
+<li><a href="#database">Database</a></li>
+<li><a href="#requirements">Requirements</a></li>
+<li><a href="#disaster-recovery">Disaster recovery</a></li>
+<li><a href="#high-availability">High availability</a></li>
+<li><a href="#fault-tolerance">Fault tolerance</a></li>
+<li><a href="#logging">Logging</a></li>
+</ul>
+</li>
+<li><a href="#key-provisioning">Key provisioning</a></li>
+</ul>
+<h2 id="client-integration">Client integration</h2>
+<p>The E4 client can be integrated in one of the following ways:</p>
+<ol>
+<li>
+<p><em>Software library</em>: We currently have a C and Go version of the E4 library, which developers can integrate in their applications. The E4 logic sits between the application logic and the transport layer: when transmitting a message, the code of the application logic will first call the E4 library's <code>protect()</code> function before calling MQTT's sending function, instead of sending the unencrypted message directly.</p>
+</li>
+<li>
+<p><em>Local protection proxy</em>: For cases where modifying the existing codebase is not acceptable, but the system can accommodate a local piece of software that can receive messages and then forward them to the broker. Then by reconfiguring the legacy application to just forward the data to the local proxy, which will protect the data and forward it to the broker, we have the same benefit of protection, but without the added clarity of a patched solution.</p>
+</li>
+<li>
+<p><em>Gateway protection proxy</em>: is a piece of software that is deployed on a gateway that forwards data from several devices to the broker. In this case, the gateway will transparently perform the protect/unprotect operations, and the end devices will not need any change.</p>
+</li>
+</ol>
+<p>Technical requirements are minimal: the client software requires 2KiB of RAM, plus 64 bytes of storage per topic that is encrypted.
+The exact RAM consumption also depend on the size of messages received (e.g., a 1KiB message will need an additional 1KiB of RAM).</p>
+<h2 id="server-integration-c2">Server integration (C2)</h2>
+<h3 id="services">Services</h3>
+<p>E4's server includes the core C2 service as well as other services:</p>
+<ul>
+<li>Database: PostgreSQL</li>
+<li>E4's automation engine</li>
+<li>Web application back-end</li>
+<li>Monitoring components: ElasticSearch, Kibana</li>
+<li>Observability components: OpenCensus agent, Prometheus, Jaeger</li>
+</ul>
+<p>Of these components, only the C2 core and database are mandatory for a basic deployment of E4.
+Users can interact with C2 and its components via their the web interface, or use the command-line applications.
+Other services can leverage C2's HTTP and gRPC APIs, as well as APIs exposed by other services.</p>
+<p>C2 should be connected to the same network as the MQTT broker used by the clients.
+If a broker is not yet running, we can provide it as part of our deployment scripts.</p>
+<h3 id="database">Database</h3>
+<p>C2 can either use its own database service, or use an SQL-like database already available in the organization's database infrastructure.
+Any SQL-like database is directly supported. Other database types can be supported on demand.</p>
+<p>Part of the database content is encrypted, so that the client keys in the database are not exposed to other components than C2.
+Encryption can be performed in software directly, using an HSM (for which we would provide a custom functional module; we can support the Gemalto ProtectServer devices, having experience writing custom firmware for these models), or using a secret management service such as Hashicorp's Vault.</p>
+<h3 id="requirements">Requirements</h3>
+<p>For a fleet of thousands of devices, the C2 core service will run on one core and 2GB RAM.</p>
+<p>Monitoring services&rsquo; requirements depends on the amount of messages, analytics type, and parameters such as messages retention period.</p>
+<p>Observability components&rsquo; requirements depend on the C2's activity level, and parameters such as the sampling rate.</p>
+<h3 id="disaster-recovery">Disaster recovery</h3>
+<p>Disaster recovery concerns can be addressed by having regular off-site back-ups of the databases (C2's SQL database, and ElasticSearch if monitoring is used), as well as copies of the services configuration files.
+With these back-ups, the C2 server can be rapidly operational after restoring the latest version of the database.
+However, risks are the following:</p>
+<ul>
+<li>
+<p>Depending on key rotation period, need to update topic keys</p>
+</li>
+<li>
+<p>Loss of contact with a device if identity key rotate (SK mode)</p>
+</li>
+<li>
+<p>Analytics data unavailable for the clients&rsquo; activity during the period after the back-up when the C2 is not operational</p>
+</li>
+</ul>
+<p>However, when only basic features are used (manual device/topic management and no automated key rotation), the C2 can be shut down or unavailable with no impact on the operation of the clients.
+This is convenient or maintenance, migration or just fault tolerance.
+When automated features are used, these might be disabled for the duration of a planned outage of C2 components.</p>
+<h3 id="high-availability">High availability</h3>
+<p>To mitigate the risks from service and database outage, a high-availability architecture might be implemented, by deploying a second C2 application, with a load balancer / heartbeat type strategy for automation, for example as an active–active setup over different sites and a distributed database.</p>
+<h3 id="fault-tolerance">Fault tolerance</h3>
+<p>A highly available setup does not eliminate all the risks related to a distributed system:</p>
+<ul>
+<li>
+<p>Non-atomic operations, if run concurrently, can lead to an inconsistent state. For example, a first topic key rotation is sent, and a second key rotation request is sent milliseconds afterwards. Then, because of unpredictable CPU and network latencies, and of possible out-of-order message delivery, some devices might receive the first key update after the second one, whereas the C2 will consider the the topic key is  the second  one.</p>
+</li>
+<li>
+<p>Network-level failures preventing control messages to be delivered might require resending messages several times, either automatically (for example leveraging MQTT QoS and resending until a PUBACK is received, with a timeout and a cap to the number of retransmissions) or manually (for example if only QoS 0 is available). In such scenarios, one should empirically assess the risk of failure and configure the system (e.g, automation engine crypto period) in a way that minimizes such risks.</p>
+</li>
+</ul>
+<h3 id="logging">Logging</h3>
+<p>C2 will generate detailed and structured system logs in JSON, which can be integrated in the organization's log management or SIEM, such as Splunk.</p>
+<h2 id="key-provisioning">Key provisioning</h2>
+<p>Here are possibilities for key initial provisioning:</p>
+<ul>
+<li>
+<p><strong>Pre-keying in a trusted environment</strong>:</p>
+<ul>
+<li>Each device is connected in a trusted network, and a helper service/device provisions the devices with keys, configurations etc. The keys can then be transferred to C2.</li>
+<li>Something like a QR code or NFC tag can be used on the devices to identify them (and link them to a factory set key) and help with key rotation. On first use, a key rotation command is issued, and the keys get updated.</li>
+</ul>
+</li>
+<li>
+<p><strong>Pre-keying in the field</strong>: The operator has a trusted device that will use i2c, iButton, NFC, BLE, light or something to &ldquo;fill&rdquo; the device with the initial key. Said interface must be authorized and require authentication of the device pushing the key.</p>
+</li>
+<li>
+<p><strong>Trust on first use (TOFU)</strong>: Devices are initialized a unique key and on first use C2 force-updates the key. This is the simplest and the least safe solution.</p>
+</li>
+</ul>
+<div class="edit-meta">
+
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/specifications/integration.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/specifications/" title="Specifications"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Specifications</a>
+<a class="nav nav-next" href="/specifications/client-specification/" title="Client specification">Next - Client specification <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class="parent"><a href="/specifications/">Specifications</a>
+<ul class="sub-menu">
+<li class="active"><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class=""><a href="/getting-started/">Getting Started</a>
+<ul class="">
+
+<li class=""><a href="/getting-started/go/">Go</a>
+<ul class="">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

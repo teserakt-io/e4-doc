@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Going further - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/getting-started/go/4-going-further/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Going further</h1><p>At this point, we have a working solution to secure communication over a shared topic, where all topic's members can send and receive encrypted messages from every other members. But E4 also allow us to explore another scenario, where we can choose who a client is authorized to receive messages from. Let's imagine <code>eve</code> have been given the topic key so she can send and receive messages, but she's not allowed to send messages to <code>alice</code> and <code>bob</code>.</p>
+<p>We'll go through the following steps, modifying our previous application to achieve it:</p>
+<ol>
+<li>Generate an admin (for us) public / private key pair</li>
+<li>Generate public/private key pairs for <code>alice</code>, <code>bob</code> and <code>eve</code></li>
+<li>Switch the E4 SymClient to a PubKeyClient</li>
+<li>Update our previous <code>init/initKey.go</code> to</li>
+</ol>
+<ul>
+<li>protect commands using our new admin key</li>
+<li>share the topic key to <code>eve</code></li>
+<li>send a new command to <code>alice</code>, to set  <code>bob</code> public key on its client</li>
+<li>send a new command to <code>bob</code>, to set  <code>alice</code> public key on its client</li>
+</ul>
+<p>Let's get started!</p>
+<p>First, let's use E4 key generator for all our key generations. We'll generate Ed25519 keys, and write the resulting public and private keys to a file:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text"># Install the E4 keygen:
+$ go install github.com/teserakt-io/e4go/cmd/e4keygen
+$ e4keygen -type ed25519 -out ./admin
+private key successfully written at ./admin
+public key successfully written at ./admin.pub
+</code></pre></div><p>Since we're at it, let's also generate other keys for <code>alice</code>, <code>bob</code> and <code>eve</code>, we'll use them in a moment:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">$ e4keygen -type ed25519 -out ./alice
+private key successfully written at ./alice
+public key successfully written at ./alice.pub
+$ e4keygen -type ed25519 -out ./bob
+private key successfully written at ./bob
+public key successfully written at ./bob.pub
+$ e4keygen -type ed25519 -out ./eve
+private key successfully written at ./eve
+public key successfully written at ./eve.pub
+</code></pre></div><p>Now that we have keys for everyone, let's update our application.
+We start by adding 2 new helper functions to load our previous keys in <code>e4demo.go</code>:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#268bd2">func</span> <span style="color:#268bd2">loadPublicKey</span>(name <span style="color:#dc322f">string</span>) ed25519.PublicKey {
+	pubKey, err <span style="color:#719e07">:=</span> ioutil.<span style="color:#268bd2">ReadFile</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;%s.pub&#34;</span>, name))
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to load key %s: %v&#34;</span>, name, err))
+	}
+
+	<span style="color:#719e07">return</span> ed25519.<span style="color:#268bd2">PublicKey</span>(pubKey)
+}
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">loadPrivateKey</span>(name <span style="color:#dc322f">string</span>) ed25519.PrivateKey {
+	privKey, err <span style="color:#719e07">:=</span> ioutil.<span style="color:#268bd2">ReadFile</span>(name)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to load key %s: %v&#34;</span>, name, err))
+	}
+
+	<span style="color:#719e07">return</span> ed25519.<span style="color:#268bd2">PrivateKey</span>(privKey)
+}
+</code></pre></div><p>Then we continue by removing the now useless <code>clientPassword</code> flag, and switch our <code>SymNameAndPassword</code> config to the new <code>PubIDAndKey</code>. Notice how the pubKeyClient is created given the <code>admin</code> public key (after converting it to a curve25519 key), such as it could authenticate the commands we'll send later.</p>
+<div class='code-tabs'>
+    <ul class="nav nav-tabs"></ul>
+    <div class="tab-content">
+<div class="tab-pane" title="after">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#268bd2">func</span> <span style="color:#268bd2">main</span>() {
+	<span style="color:#268bd2">var</span> clientName <span style="color:#dc322f">string</span>
+	flag.<span style="color:#268bd2">StringVar</span>(<span style="color:#719e07">&amp;</span>clientName, <span style="color:#2aa198">&#34;client&#34;</span>, <span style="color:#2aa198">&#34;&#34;</span>, <span style="color:#2aa198">&#34;the client name&#34;</span>)
+	flag.<span style="color:#268bd2">Parse</span>()
+
+	<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(clientName) <span style="color:#719e07">==</span> <span style="color:#2aa198">0</span> {
+		fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;-client is required&#34;</span>)
+		os.<span style="color:#268bd2">Exit</span>(<span style="color:#2aa198">1</span>)
+	}
+
+	adminPubCurveKey <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">PublicEd25519KeyToCurve25519</span>(<span style="color:#268bd2">loadPublicKey</span>(<span style="color:#2aa198">&#34;admin&#34;</span>))
+	e4Client, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">NewClient</span>(<span style="color:#719e07">&amp;</span>e4.PubIDAndKey{
+		ID:       e4crypto.<span style="color:#268bd2">HashIDAlias</span>(clientName),
+		Key:      <span style="color:#268bd2">loadPrivateKey</span>(clientName),
+		C2PubKey: adminPubCurveKey[:],
+	}, e4.<span style="color:#268bd2">NewInMemoryStore</span>(<span style="color:#cb4b16">nil</span>))
+	<span style="color:#719e07">/</span><span style="color:#719e07">/</span> <span style="color:#719e07">...</span></code></pre></div>
+
+</div>
+
+<div class="tab-pane" title="before">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#268bd2">func</span> <span style="color:#268bd2">main</span>() {
+	<span style="color:#268bd2">var</span> clientName <span style="color:#dc322f">string</span>
+	<span style="color:#268bd2">var</span> clientPassword <span style="color:#dc322f">string</span>
+	flag.<span style="color:#268bd2">StringVar</span>(<span style="color:#719e07">&amp;</span>clientName, <span style="color:#2aa198">&#34;client&#34;</span>, <span style="color:#2aa198">&#34;&#34;</span>, <span style="color:#2aa198">&#34;the client name&#34;</span>)
+	flag.<span style="color:#268bd2">StringVar</span>(<span style="color:#719e07">&amp;</span>clientPassword, <span style="color:#2aa198">&#34;password&#34;</span>, <span style="color:#2aa198">&#34;&#34;</span>, <span style="color:#2aa198">&#34;the client password&#34;</span>)
+	flag.<span style="color:#268bd2">Parse</span>()
+
+	<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(clientName) <span style="color:#719e07">==</span> <span style="color:#2aa198">0</span> {
+		fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;-client is required&#34;</span>)
+		os.<span style="color:#268bd2">Exit</span>(<span style="color:#2aa198">1</span>)
+	}
+	<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(clientPassword) &lt; <span style="color:#2aa198">16</span> {
+		<span style="color:#b58900">panic</span>(<span style="color:#2aa198">&#34;-password is required and must contains at least 16 characters&#34;</span>)
+	}
+
+	e4Client, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">NewClient</span>(<span style="color:#719e07">&amp;</span>e4.SymNameAndPassword{Name: clientName, Password: clientPassword}, e4.<span style="color:#268bd2">NewInMemoryStore</span>(<span style="color:#cb4b16">nil</span>))
+	<span style="color:#719e07">/</span><span style="color:#719e07">/</span> <span style="color:#719e07">...</span></code></pre></div>
+
+</div>
+
+</div>
+</div>
+
+<p><a href="../e4demo-step4.go">Click here to download the full source of this script</a></p>
+<p>And that's all we need!</p>
+<p>Let's now modify then <code>init/initKeys.go</code> script to protect and send the commands using the new keys.
+We'll start by adding 3 helpers, reusing our previous 2 key loading functions, and a new <code>pubKeyProtectAndSendCommand</code>. We also comment out the <code>protectAndSendCommand</code> function as we'll not need it anymore:</p>
+<div class='code-tabs'>
+    <ul class="nav nav-tabs"></ul>
+    <div class="tab-content">
+<div class="tab-pane" title="after">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#268bd2">func</span> <span style="color:#268bd2">pubKeyProtectAndSendCommand</span>(mqttClient mqtt.Client, clientName <span style="color:#dc322f">string</span>, command []<span style="color:#dc322f">byte</span>) <span style="color:#dc322f">error</span> {
+	<span style="color:#586e75">// Load ed25519 keys, and convert them to curve25519 keys
+</span><span style="color:#586e75"></span>	clientPublicCurveKey <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">PublicEd25519KeyToCurve25519</span>(<span style="color:#268bd2">loadPublicKey</span>(clientName))
+	adminPrivateCurveKey <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">PrivateEd25519KeyToCurve25519</span>(<span style="color:#268bd2">loadPrivateKey</span>(<span style="color:#2aa198">&#34;admin&#34;</span>))
+
+	shared, err <span style="color:#719e07">:=</span> curve25519.<span style="color:#268bd2">X25519</span>(adminPrivateCurveKey, clientPublicCurveKey)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#719e07">return</span> fmt.<span style="color:#268bd2">Errorf</span>(<span style="color:#2aa198">&#34;curve25519 X25519 failed: %v&#34;</span>, err)
+	}
+
+	protectedCommand, err <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">ProtectSymKey</span>(command, e4crypto.<span style="color:#268bd2">Sha3Sum256</span>(shared))
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#719e07">return</span> fmt.<span style="color:#268bd2">Errorf</span>(<span style="color:#2aa198">&#34;failed to protect command: %v&#34;</span>, err)
+	}
+
+	clientReceivingTopic <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">TopicForID</span>(e4crypto.<span style="color:#268bd2">HashIDAlias</span>(clientName))
+	token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Publish</span>(clientReceivingTopic, <span style="color:#2aa198">2</span>, <span style="color:#cb4b16">true</span>, protectedCommand)
+	<span style="color:#719e07">if</span> !token.<span style="color:#268bd2">WaitTimeout</span>(time.Second) {
+		<span style="color:#719e07">return</span> fmt.<span style="color:#268bd2">Errorf</span>(<span style="color:#2aa198">&#34;failed to publish command: %v&#34;</span>, token.<span style="color:#268bd2">Error</span>())
+	}
+
+	<span style="color:#719e07">return</span> <span style="color:#cb4b16">nil</span>
+}
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">loadPublicKey</span>(name <span style="color:#dc322f">string</span>) ed25519.PublicKey {
+	pubKey, err <span style="color:#719e07">:=</span> ioutil.<span style="color:#268bd2">ReadFile</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;%s.pub&#34;</span>, name))
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to load key %s: %v&#34;</span>, name, err))
+	}
+
+	<span style="color:#719e07">return</span> ed25519.<span style="color:#268bd2">PublicKey</span>(pubKey)
+}
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">loadPrivateKey</span>(name <span style="color:#dc322f">string</span>) ed25519.PrivateKey {
+	privKey, err <span style="color:#719e07">:=</span> ioutil.<span style="color:#268bd2">ReadFile</span>(name)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to load key %s: %v&#34;</span>, name, err))
+	}
+
+	<span style="color:#719e07">return</span> ed25519.<span style="color:#268bd2">PrivateKey</span>(privKey)
+}</code></pre></div>
+
+</div>
+
+<div class="tab-pane" title="before">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#268bd2">func</span> <span style="color:#268bd2">protectAndSendCommand</span>(mqttClient mqtt.Client, clientName <span style="color:#dc322f">string</span>, clientKey, command []<span style="color:#dc322f">byte</span>) <span style="color:#dc322f">error</span> {
+	protectedCommand, err <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">ProtectSymKey</span>(command, clientKey)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#719e07">return</span> fmt.<span style="color:#268bd2">Errorf</span>(<span style="color:#2aa198">&#34;failed to protect command: %v&#34;</span>, err)
+	}
+
+	clientReceivingTopic <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">TopicForID</span>(e4crypto.<span style="color:#268bd2">HashIDAlias</span>(clientName))
+	token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Publish</span>(clientReceivingTopic, <span style="color:#2aa198">2</span>, <span style="color:#cb4b16">true</span>, protectedCommand)
+	<span style="color:#719e07">if</span> !token.<span style="color:#268bd2">WaitTimeout</span>(time.Second) {
+		<span style="color:#719e07">return</span> fmt.<span style="color:#268bd2">Errorf</span>(<span style="color:#2aa198">&#34;failed to publish command: %v&#34;</span>, token.<span style="color:#268bd2">Error</span>())
+	}
+
+	<span style="color:#719e07">return</span> <span style="color:#cb4b16">nil</span>
+}</code></pre></div>
+
+</div>
+
+</div>
+</div>
+
+<p>Next, we update the main function to create the commands and send them over mqtt, as we did before. But this time we'll give the topic key to <code>alice</code>, <code>bob</code> and <code>eve</code>, and add an extra command to give <code>bob</code> public key to <code>alice</code>, and <code>alice</code> public key to <code>bob</code>:</p>
+<div class='code-tabs'>
+    <ul class="nav nav-tabs"></ul>
+    <div class="tab-content">
+<div class="tab-pane" title="after">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#719e07">package</span> main
+
+<span style="color:#719e07">import</span> (
+	<span style="color:#2aa198">&#34;fmt&#34;</span>
+	<span style="color:#2aa198">&#34;io/ioutil&#34;</span>
+	<span style="color:#2aa198">&#34;time&#34;</span>
+
+	mqtt <span style="color:#2aa198">&#34;github.com/eclipse/paho.mqtt.golang&#34;</span>
+	<span style="color:#2aa198">&#34;golang.org/x/crypto/ed25519&#34;</span>
+
+	e4 <span style="color:#2aa198">&#34;github.com/teserakt-io/e4go&#34;</span>
+	e4crypto <span style="color:#2aa198">&#34;github.com/teserakt-io/e4go/crypto&#34;</span>
+)
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">main</span>() {
+	<span style="color:#586e75">// Generate a key for the topic
+</span><span style="color:#586e75"></span>	messageTopicKey <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">RandomKey</span>()
+
+	<span style="color:#586e75">// Create a E4 command to set the topic key:
+</span><span style="color:#586e75"></span>	setTopicKeyCmd, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">CmdSetTopicKey</span>(messageTopicKey, <span style="color:#2aa198">&#34;/e4go/demo/messages&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to create setTopicKeyCmd: %v&#34;</span>, err))
+	}
+
+	<span style="color:#586e75">// Connect to MQTT broker
+</span><span style="color:#586e75"></span>	opts <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClientOptions</span>()
+	opts.<span style="color:#268bd2">AddBroker</span>(<span style="color:#2aa198">&#34;mqtt.eclipse.org:1338&#34;</span>)
+	opts.<span style="color:#268bd2">SetCleanSession</span>(<span style="color:#cb4b16">true</span>)
+
+	mqttClient <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClient</span>(opts)
+	<span style="color:#719e07">if</span> token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Connect</span>(); token.<span style="color:#268bd2">WaitTimeout</span>(time.Second) <span style="color:#719e07">&amp;&amp;</span> token.<span style="color:#268bd2">Error</span>() <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to connect to mqtt broker: %v&#34;</span>, token.<span style="color:#268bd2">Error</span>()))
+	}
+
+	<span style="color:#586e75">// Protect and send alice&#39;s topic key to our 3 clients:
+</span><span style="color:#586e75"></span>	<span style="color:#719e07">for</span> _, client <span style="color:#719e07">:=</span> <span style="color:#719e07">range</span> []<span style="color:#dc322f">string</span>{<span style="color:#2aa198">&#34;alice&#34;</span>, <span style="color:#2aa198">&#34;bob&#34;</span>, <span style="color:#2aa198">&#34;eve&#34;</span>} {
+		<span style="color:#719e07">if</span> err <span style="color:#719e07">:=</span> <span style="color:#268bd2">pubKeyProtectAndSendCommand</span>(mqttClient, client, setTopicKeyCmd); err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+			<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to protect and send command: %v&#34;</span>, err))
+		}
+		fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;topic key have been set for %s!\n&#34;</span>, client)
+	}
+
+	<span style="color:#586e75">// Now gives bob&#39;s public key to alice
+</span><span style="color:#586e75"></span>	setBobPubKeyCmd, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">CmdSetPubKey</span>(<span style="color:#268bd2">loadPublicKey</span>(<span style="color:#2aa198">&#34;bob&#34;</span>), <span style="color:#2aa198">&#34;bob&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to create setBobPubKeyCmd: %v&#34;</span>, err))
+	}
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">:=</span> <span style="color:#268bd2">pubKeyProtectAndSendCommand</span>(mqttClient, <span style="color:#2aa198">&#34;alice&#34;</span>, setBobPubKeyCmd); err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to send bob&#39;s public key to alice: %v&#34;</span>, err))
+	}
+	fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;alice now have bob&#39;s public key!&#34;</span>)
+
+	<span style="color:#586e75">// And alice&#39;s public key to bob
+</span><span style="color:#586e75"></span>	setAlicePubKeyCmd, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">CmdSetPubKey</span>(<span style="color:#268bd2">loadPublicKey</span>(<span style="color:#2aa198">&#34;alice&#34;</span>), <span style="color:#2aa198">&#34;alice&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to create setAlicePubKeyCmd: %v&#34;</span>, err))
+	}
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">:=</span> <span style="color:#268bd2">pubKeyProtectAndSendCommand</span>(mqttClient, <span style="color:#2aa198">&#34;bob&#34;</span>, setAlicePubKeyCmd); err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to send alice&#39;s public key to bob: %v&#34;</span>, err))
+	}
+	fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;bob now have alice&#39;s public key!&#34;</span>)
+}</code></pre></div>
+
+</div>
+
+<div class="tab-pane" title="before">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#719e07">package</span> main
+
+<span style="color:#719e07">import</span> (
+	<span style="color:#2aa198">&#34;fmt&#34;</span>
+	<span style="color:#2aa198">&#34;io/ioutil&#34;</span>
+	<span style="color:#2aa198">&#34;time&#34;</span>
+
+	mqtt <span style="color:#2aa198">&#34;github.com/eclipse/paho.mqtt.golang&#34;</span>
+
+	e4 <span style="color:#2aa198">&#34;github.com/teserakt-io/e4go&#34;</span>
+	e4crypto <span style="color:#2aa198">&#34;github.com/teserakt-io/e4go/crypto&#34;</span>
+)
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">main</span>() {
+	<span style="color:#586e75">// Generate a key for the topic
+</span><span style="color:#586e75"></span>	messageTopicKey <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">RandomKey</span>()
+
+	<span style="color:#586e75">// Create Alice and Bob keys from their passwords
+</span><span style="color:#586e75"></span>	aliceKey, err <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">DeriveSymKey</span>(<span style="color:#2aa198">&#34;super-secret-alice-password&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to derivate alice key from password: %v&#34;</span>, err))
+	}
+	bobKey, err <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">DeriveSymKey</span>(<span style="color:#2aa198">&#34;super-secret-bob-password&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to derivate bob key from password: %v&#34;</span>, err))
+	}
+
+	<span style="color:#586e75">// Create a E4 command to set the topic key:
+</span><span style="color:#586e75"></span>	setTopicKeyCmd, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">CmdSetTopicKey</span>(messageTopicKey, <span style="color:#2aa198">&#34;/e4go/demo/messages&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to create setTopicKeyCmd: %v&#34;</span>, err))
+	}
+
+	<span style="color:#586e75">// Connect to MQTT broker
+</span><span style="color:#586e75"></span>	opts <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClientOptions</span>()
+	opts.<span style="color:#268bd2">AddBroker</span>(<span style="color:#2aa198">&#34;mqtt.eclipse.org:1338&#34;</span>)
+	opts.<span style="color:#268bd2">SetCleanSession</span>(<span style="color:#cb4b16">true</span>)
+
+	mqttClient <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClient</span>(opts)
+	<span style="color:#719e07">if</span> token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Connect</span>(); token.<span style="color:#268bd2">WaitTimeout</span>(time.Second) <span style="color:#719e07">&amp;&amp;</span> token.<span style="color:#268bd2">Error</span>() <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to connect to mqtt broker: %v&#34;</span>, token.<span style="color:#268bd2">Error</span>()))
+	}
+
+	<span style="color:#586e75">// Protect and send the command to our 2 clients via MQTT
+</span><span style="color:#586e75"></span>	<span style="color:#719e07">if</span> err <span style="color:#719e07">:=</span> <span style="color:#268bd2">protectAndSendCommand</span>(mqttClient, <span style="color:#2aa198">&#34;alice&#34;</span>, aliceKey, setTopicKeyCmd); err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to protect command: %v&#34;</span>, err))
+	}
+	fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;Topic key have been set for alice!&#34;</span>)
+
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">:=</span> <span style="color:#268bd2">protectAndSendCommand</span>(mqttClient, <span style="color:#2aa198">&#34;bob&#34;</span>, bobKey, setTopicKeyCmd); err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to protect command: %v&#34;</span>, err))
+	}
+	fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;Topic key have been set for bob!&#34;</span>)
+}</code></pre></div>
+
+</div>
+
+</div>
+</div>
+
+<p><a href="../initKeys-step4.go">Click here to download the full source of this script</a></p>
+<p>Now we're all set! Let's try it out.</p>
+<p>First, we open 3 terminal and start our clients:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text"># Alice
+$ go run e4demo.go -client alice
+connected to mqtt.eclipse.org:1338
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+
+# Bob
+$ go run e4demo.go -client bob
+connected to mqtt.eclipse.org:1338
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+
+# Eve
+$ go run e4demo.go -client eve
+connected to mqtt.eclipse.org:1338
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+</code></pre></div><p>And in another terminal, run the <code>initKey.go</code> script:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">$ go run initKeys.go
+topic key have been set for alice!
+topic key have been set for bob!
+topic key have been set for eve!
+alice now have bob&#39;s public key!
+bob now have alice&#39;s public key!
+</code></pre></div><p><code>alice</code> and <code>bob</code> clients have received 2 messages, topic key in first, and the public key in the second:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">&lt; received raw message on e4/a7dcef9aef26202fce82a7c7d6672afb: &lt;raw bytes&gt;
+&lt; unprotected message:
+&lt; received raw message on e4/a7dcef9aef26202fce82a7c7d6672afb: &lt;raw bytes&gt;
+&lt; unprotected message:
+</code></pre></div><p>And <code>eve</code> only one, the topic key:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">&lt; received raw message on e4/fcf4908516e5f2aa8d07a01b093fd4ef: &lt;raw bytes&gt;
+&lt; unprotected message:
+</code></pre></div><p>From <code>alice</code> client, we can now send a message:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text"># Alice
+Hello, I&#39;m alice and this is a secret message for bob!
+&gt; message published successfully
+</code></pre></div><p>And observe the result in <code>bob</code> and <code>eve</code> clients:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text"># Bob
+&lt; received raw message on /e4go/demo/messages: &lt;raw bytes&gt;
+&lt; unprotected message:  Hello, I&#39;m alice and this is a secret message for bob!
+
+# Eve
+&lt; received raw message on /e4go/demo/messages: &lt;raw bytes&gt;
+failed to unprotect message: signer public key not found
+</code></pre></div><p>So <code>bob</code> properly receive, unprotect and validate the message he received, but <code>eve</code> can't, since she doesn't have the sender public key.
+Now let's try to send a message on the topic as <code>eve</code>:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text"># Eve
+Hello I&#39;m Eve!
+&gt; message published successfully
+
+# From Alice or Bob clients:
+&lt; received raw message on /e4go/demo/messages: &lt;raw bytes&gt;
+failed to unprotect message: signer public key not found
+</code></pre></div><p>E4 properly discard <code>eve</code> messages as neither <code>alice</code> or <code>bob</code> have been given her public key.</p>
+<p>That's it for our E4 introduction with the Go client. If you have any questions, or other use cases which are not covered yet, feel free to open an issue on the <a href="https://github.com/teserakt-io/e4go/issues">Github tracker</a></p>
+<div class="edit-meta">
+Last updated on 27 Sep 2019
+
+
+<br>
+Published on 25 Sep 2019
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/getting-started/go/4-going-further.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/getting-started/go/3-setting-up-clients/" title="Setting up E4 clients"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Setting up E4 clients</a>
+<a class="nav nav-next" href="/getting-started/go/1-basic-app/" title="Basic application setup">Next - Basic application setup <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class=""><a href="/specifications/">Specifications</a>
+<ul class="">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class="parent"><a href="/getting-started/">Getting Started</a>
+<ul class="sub-menu">
+
+<li class="parent"><a href="/getting-started/go/">Go</a>
+<ul class="sub-menu">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class="active"><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

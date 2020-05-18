@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Protecting messages with E4 - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/getting-started/go/2-e4-integration/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Protecting messages with E4</h1><p>In previous part, we made a simple application where <code>alice</code> and <code>bob</code> could exchange messages. But now we want them to be able to communicate privately, even if <code>eve</code> subscribe to the MQTT topic.</p>
+<p>To do so, we'll integrate the E4 library in our application, and create a symmetric key, and securely share it with <code>alice</code> and <code>bob</code>, so they can encrypt their messages with it. After this, only key holders could read the exchanged messages.</p>
+<p>First, let's modify our previous application to create an E4 client and read a client password from the flags.
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#719e07">package</span> main
+
+<span style="color:#719e07">import</span> (
+    <span style="color:#586e75">// ...
+</span><span style="color:#586e75"></span>
+	mqtt <span style="color:#2aa198">&#34;github.com/eclipse/paho.mqtt.golang&#34;</span>
+<span style="display:block;width:100%;background-color:#19404a">	e4 <span style="color:#2aa198">&#34;github.com/teserakt-io/e4go&#34;</span>
+</span>)
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">main</span>() {
+	<span style="color:#586e75">// 1. Read a client and a peer identifiers from command line flags
+</span><span style="color:#586e75"></span>	<span style="color:#268bd2">var</span> clientName <span style="color:#dc322f">string</span>
+<span style="display:block;width:100%;background-color:#19404a">	<span style="color:#268bd2">var</span> clientPassword <span style="color:#dc322f">string</span>
+</span>	flag.<span style="color:#268bd2">StringVar</span>(<span style="color:#719e07">&amp;</span>clientName, <span style="color:#2aa198">&#34;client&#34;</span>, <span style="color:#2aa198">&#34;&#34;</span>, <span style="color:#2aa198">&#34;the client name&#34;</span>)
+<span style="display:block;width:100%;background-color:#19404a">	flag.<span style="color:#268bd2">StringVar</span>(<span style="color:#719e07">&amp;</span>clientPassword, <span style="color:#2aa198">&#34;password&#34;</span>, <span style="color:#2aa198">&#34;&#34;</span>, <span style="color:#2aa198">&#34;the client password&#34;</span>)
+</span>	flag.<span style="color:#268bd2">Parse</span>()
+
+	<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(clientName) <span style="color:#719e07">==</span> <span style="color:#2aa198">0</span> {
+		fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;-client is required&#34;</span>)
+		os.<span style="color:#268bd2">Exit</span>(<span style="color:#2aa198">1</span>)
+	}
+<span style="display:block;width:100%;background-color:#19404a">	<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(clientPassword) &lt; <span style="color:#2aa198">16</span> {
+</span><span style="display:block;width:100%;background-color:#19404a">		fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;-password is required and must be longer than 16 characters&#34;</span>)
+</span><span style="display:block;width:100%;background-color:#19404a">		os.<span style="color:#268bd2">Exit</span>(<span style="color:#2aa198">1</span>)
+</span><span style="display:block;width:100%;background-color:#19404a">	}
+</span>
+	<span style="color:#586e75">// 2. Connect to a MQTT broker (we&#39;ll use our public mqtt.teserakt.io:1338)
+</span><span style="color:#586e75"></span>	<span style="color:#586e75">// ...
+</span><span style="color:#586e75"></span>	fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&gt; connected to %s\n&#34;</span>, brokerEndpoint)
+
+<span style="display:block;width:100%;background-color:#19404a">	e4Client, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">NewClient</span>(<span style="color:#719e07">&amp;</span>e4.SymNameAndPassword{Name: clientName, Password: clientPassword}, e4.<span style="color:#268bd2">NewInMemoryStore</span>(<span style="color:#cb4b16">nil</span>))
+</span><span style="display:block;width:100%;background-color:#19404a">	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+</span><span style="display:block;width:100%;background-color:#19404a">		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to created e4 client: %v&#34;</span>, err))
+</span><span style="display:block;width:100%;background-color:#19404a">	}
+</span>
+	<span style="color:#586e75">// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
+</span><span style="color:#586e75"></span>	<span style="color:#586e75">// ...
+</span><span style="color:#586e75"></span>}</code></pre></div></p>
+<p>Now we'll replace the previous <code>mqtt.Subscribe()</code> to subscribe to the peer topic and the e4 receiving topic
+We also feed the incoming messages to the <code>e4Client.Unprotect()</code> in the MQTT messages reception callback.</p>
+<div class='code-tabs'>
+    <ul class="nav nav-tabs"></ul>
+    <div class="tab-content">
+<div class="tab-pane" title="after">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">	<span style="color:#586e75">// ...
+</span><span style="color:#586e75"></span>	<span style="color:#586e75">// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
+</span><span style="color:#586e75"></span>	messageTopic <span style="color:#719e07">:=</span> <span style="color:#2aa198">&#34;/e4go/demo/messages&#34;</span>
+	topics <span style="color:#719e07">:=</span> <span style="color:#268bd2">map</span>[<span style="color:#dc322f">string</span>]<span style="color:#dc322f">byte</span>{
+		messageTopic:                 <span style="color:#2aa198">1</span>,
+		e4Client.<span style="color:#268bd2">GetReceivingTopic</span>(): <span style="color:#2aa198">2</span>,
+	}
+	token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">SubscribeMultiple</span>(topics, <span style="color:#268bd2">func</span>(_ mqtt.Client, msg mqtt.Message) {
+		fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&lt; receive raw message on %s: %s\n&#34;</span>, msg.<span style="color:#268bd2">Topic</span>(), msg.<span style="color:#268bd2">Payload</span>())
+		clearMessage, err <span style="color:#719e07">:=</span> e4Client.<span style="color:#268bd2">Unprotect</span>(msg.<span style="color:#268bd2">Payload</span>(), msg.<span style="color:#268bd2">Topic</span>())
+		<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+			fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;failed to unprotect message: %v\n&#34;</span>, err)
+			<span style="color:#719e07">return</span>
+		}
+
+		fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&lt; unprotected message: %s\n&#34;</span>, clearMessage)
+	})
+	<span style="color:#719e07">/</span><span style="color:#719e07">/</span> <span style="color:#719e07">...</span></code></pre></div>
+
+</div>
+
+<div class="tab-pane" title="before">
+    
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">	<span style="color:#586e75">// ...
+</span><span style="color:#586e75"></span>	<span style="color:#586e75">// 3 - Subscribe to message MQTT topic and print incoming messages to stdout
+</span><span style="color:#586e75"></span>	messageTopic <span style="color:#719e07">:=</span> <span style="color:#2aa198">&#34;/e4go/demo/messages&#34;</span>
+	token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Subscribe</span>(messageTopic, <span style="color:#2aa198">1</span>, <span style="color:#268bd2">func</span>(_ mqtt.Client, msg mqtt.Message) {
+	 	fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&lt; received raw message on %s: %s\n&#34;</span>, msg.<span style="color:#268bd2">Topic</span>(), msg.<span style="color:#268bd2">Payload</span>())
+	 })
+	<span style="color:#719e07">/</span><span style="color:#719e07">/</span> <span style="color:#719e07">...</span></code></pre></div>
+
+</div>
+
+</div>
+</div>
+
+<p>And last, we also update the payload we pass to <code>mqtt.Publish</code>, to protect the message first :</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">        <span style="color:#586e75">// ...
+</span><span style="color:#586e75"></span>		message <span style="color:#719e07">:=</span> scanner.<span style="color:#268bd2">Text</span>()
+		<span style="color:#719e07">if</span> <span style="color:#b58900">len</span>(message) <span style="color:#719e07">==</span> <span style="color:#2aa198">0</span> { <span style="color:#586e75">// Skip empty messages
+</span><span style="color:#586e75"></span>			<span style="color:#719e07">continue</span>
+		}
+
+<span style="display:block;width:100%;background-color:#19404a">		protectedMessage, err <span style="color:#719e07">:=</span> e4Client.<span style="color:#268bd2">ProtectMessage</span>([]<span style="color:#b58900">byte</span>(message), messageTopic)
+</span><span style="display:block;width:100%;background-color:#19404a">		<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+</span><span style="display:block;width:100%;background-color:#19404a">			fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&gt; failed to protect message: %v\n&#34;</span>, err)
+</span><span style="display:block;width:100%;background-color:#19404a">			<span style="color:#719e07">continue</span>
+</span><span style="display:block;width:100%;background-color:#19404a">		}
+</span><span style="display:block;width:100%;background-color:#19404a">		<span style="color:#719e07">if</span> token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Publish</span>(messageTopic, <span style="color:#2aa198">1</span>, <span style="color:#cb4b16">true</span>, protectedMessage); token.<span style="color:#268bd2">Error</span>() <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+</span>			fmt.<span style="color:#268bd2">Printf</span>(<span style="color:#2aa198">&#34;&gt; failed to publish message: %v\n&#34;</span>, token.<span style="color:#268bd2">Error</span>())
+			<span style="color:#719e07">continue</span>
+		}
+        <span style="color:#719e07">/</span><span style="color:#719e07">/</span> <span style="color:#719e07">...</span></code></pre></div>
+<p><a href="../e4demo-step2.go">Click here to download the full source at this point</a></p>
+<p>And voila, our application have now integrated E4 and is ready to communicate securely.</p>
+<p>But something goes wrong when we try it:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text"># Alice
+$ go run e4demo.go -client alice -password super-secret-alice-password
+&gt; connected to mqtt.eclipse.org:1338
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+Hello, I&#39;m alice and this is a secret message for bob!
+&gt; failed to protect message: topic key not found
+
+# Bob
+$ go run e4demo.go -client bob -password super-secret-bob-password
+connected to mqtt.eclipse.org:1338
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; type anything and press enter to send the message to /e4go/demo/messages:
+</code></pre></div><p>Right, we still need to transmit the key to the clients so they can encrypt and decrypt messages with it.
+in E4, each topics need its own key. And we can see that our updated client now isn't listening only for incoming messages from the peer, but also from <code>e4Client.ReceivingTopic()</code> topic. And this is how we'll transmit the topic key to each clients.</p>
+<p>We'll cover this in the next section.</p>
+<div class="edit-meta">
+Last updated on 27 Sep 2019
+
+
+<br>
+Published on 6 Sep 2019
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/getting-started/go/2-e4-integration.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/getting-started/go/1-basic-app/" title="Basic application setup"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Basic application setup</a>
+<a class="nav nav-next" href="/getting-started/go/3-setting-up-clients/" title="Setting up E4 clients">Next - Setting up E4 clients <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class=""><a href="/specifications/">Specifications</a>
+<ul class="">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class="parent"><a href="/getting-started/">Getting Started</a>
+<ul class="sub-menu">
+
+<li class="parent"><a href="/getting-started/go/">Go</a>
+<ul class="sub-menu">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class="active"><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

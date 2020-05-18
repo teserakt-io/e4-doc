@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Setting up E4 clients - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/getting-started/go/3-setting-up-clients/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Setting up E4 clients</h1><p>Previously, we've updated our application to integrate the E4 library, and protect and unprotect the exchanged messages. But we could not communicate yet, since the clients didn't hold any keys necessary to encrypt or decrypt the messages. We'll fix this now.</p>
+<p>E4 clients can receive commands, meant to update their internal state, like the list of topic keys they can uses. So to fix our issue, we'll need to:</p>
+<ul>
+<li>generate a topic key for /e4demo/messages topic</li>
+<li>send this key to each clients, on their respective E4 receiving topics</li>
+</ul>
+<p>Once clients have received the key, <code>alice</code> will be able to protect message she send, and unprotect messages from <code>bob</code>. Also, <code>bob</code> can protect messages he send, and unprotect <code>alice</code> messages.</p>
+<p>Let's start by booting up our 2 clients, so they are listening on their topics:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#586e75"># In a first terminal, start Alice client:</span>
+go run e4demo.go  -client alice -password super-secret-alice-password
+<span style="color:#586e75"># And in another, start Bob client:</span>
+go run e4demo.go  -client bob -password super-secret-bob-password
+</code></pre></div><p>You can replace <code>super-secret-alice-password</code> and <code>super-secret-bob-password</code> with some of your choice.
+Now, let's write another small <code>initKeys.go</code> script to send <code>SetTopicKey</code> commands to our clients:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text">$ mkdir init/ &amp;&amp; \
+	touch ./init/initKeys.go
+</code></pre></div><div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#719e07">package</span> main
+
+<span style="color:#719e07">import</span> (
+	<span style="color:#2aa198">&#34;fmt&#34;</span>
+	<span style="color:#2aa198">&#34;time&#34;</span>
+
+	mqtt <span style="color:#2aa198">&#34;github.com/eclipse/paho.mqtt.golang&#34;</span>
+	e4 <span style="color:#2aa198">&#34;github.com/teserakt-io/e4go&#34;</span>
+	e4crypto <span style="color:#2aa198">&#34;github.com/teserakt-io/e4go/crypto&#34;</span>
+)
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">main</span>() {
+	<span style="color:#586e75">// Generate a key for the topic
+</span><span style="color:#586e75"></span>	messageTopicKey <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">RandomKey</span>()
+
+	<span style="color:#586e75">// Create Alice and Bob keys from their passwords
+</span><span style="color:#586e75"></span>	aliceKey, err <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">DeriveSymKey</span>(<span style="color:#2aa198">&#34;super-secret-alice-password&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to derivate alice key from password: %v&#34;</span>, err))
+	}
+	bobKey, err <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">DeriveSymKey</span>(<span style="color:#2aa198">&#34;super-secret-bob-password&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to derivate bob key from password: %v&#34;</span>, err))
+	}
+
+	<span style="color:#586e75">// Create a E4 command to set the topic key:
+</span><span style="color:#586e75"></span>	setTopicKeyCmd, err <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">CmdSetTopicKey</span>(messageTopicKey, <span style="color:#2aa198">&#34;/e4go/demo/messages&#34;</span>)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to create setTopicKeyCmd: %v&#34;</span>, err))
+	}
+
+	<span style="color:#586e75">// Connect to MQTT broker
+</span><span style="color:#586e75"></span>	opts <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClientOptions</span>()
+	opts.<span style="color:#268bd2">AddBroker</span>(<span style="color:#2aa198">&#34;mqtt.eclipse.org:1338&#34;</span>)
+	opts.<span style="color:#268bd2">SetCleanSession</span>(<span style="color:#cb4b16">true</span>)
+
+	mqttClient <span style="color:#719e07">:=</span> mqtt.<span style="color:#268bd2">NewClient</span>(opts)
+	timeout <span style="color:#719e07">:=</span> time.Second
+	<span style="color:#719e07">if</span> token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Connect</span>(); token.<span style="color:#268bd2">WaitTimeout</span>(timeout) <span style="color:#719e07">&amp;&amp;</span> token.<span style="color:#268bd2">Error</span>() <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to connect to mqtt broker: %v&#34;</span>, token.<span style="color:#268bd2">Error</span>()))
+	}
+
+	<span style="color:#586e75">// Protect and send the command to our 2 clients via MQTT
+</span><span style="color:#586e75"></span>	<span style="color:#719e07">if</span> err <span style="color:#719e07">:=</span> <span style="color:#268bd2">protectAndSendCommand</span>(mqttClient, <span style="color:#2aa198">&#34;alice&#34;</span>, aliceKey, setTopicKeyCmd); err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to protect command: %v&#34;</span>, err))
+	}
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">:=</span> <span style="color:#268bd2">protectAndSendCommand</span>(mqttClient, <span style="color:#2aa198">&#34;bob&#34;</span>, bobKey, setTopicKeyCmd); err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#b58900">panic</span>(fmt.<span style="color:#268bd2">Sprintf</span>(<span style="color:#2aa198">&#34;failed to protect command: %v&#34;</span>, err))
+	}
+
+	fmt.<span style="color:#268bd2">Println</span>(<span style="color:#2aa198">&#34;Topic keys have been set!&#34;</span>)
+}
+
+<span style="color:#268bd2">func</span> <span style="color:#268bd2">protectAndSendCommand</span>(mqttClient mqtt.Client, clientName <span style="color:#dc322f">string</span>, clientKey, command []<span style="color:#dc322f">byte</span>) <span style="color:#dc322f">error</span> {
+	protectedCommand, err <span style="color:#719e07">:=</span> e4crypto.<span style="color:#268bd2">ProtectSymKey</span>(command, clientKey)
+	<span style="color:#719e07">if</span> err <span style="color:#719e07">!=</span> <span style="color:#cb4b16">nil</span> {
+		<span style="color:#719e07">return</span> fmt.<span style="color:#268bd2">Errorf</span>(<span style="color:#2aa198">&#34;failed to protect command: %v&#34;</span>, err)
+	}
+
+	clientReceivingTopic <span style="color:#719e07">:=</span> e4.<span style="color:#268bd2">TopicForID</span>(e4crypto.<span style="color:#268bd2">HashIDAlias</span>(clientName))
+	token <span style="color:#719e07">:=</span> mqttClient.<span style="color:#268bd2">Publish</span>(clientReceivingTopic, <span style="color:#2aa198">2</span>, <span style="color:#cb4b16">true</span>, protectedCommand)
+	timeout <span style="color:#719e07">:=</span> time.Second
+	<span style="color:#719e07">if</span> !token.<span style="color:#268bd2">WaitTimeout</span>(timeout) {
+		<span style="color:#719e07">return</span> fmt.<span style="color:#268bd2">Errorf</span>(<span style="color:#2aa198">&#34;failed to publish command: %v&#34;</span>, token.<span style="color:#268bd2">Error</span>())
+	}
+
+	<span style="color:#719e07">return</span> <span style="color:#cb4b16">nil</span>
+}
+</code></pre></div><p><a href="../initKeys-step3.go">Click here to download the full source of this script</a></p>
+<p>Replace <code>super-secret-alice-password</code> and <code>super-secret-bob-password</code> and let's run this script:</p>
+<pre><code>$ go run ./init/initKeys.go
+Topic key have been set for alice!
+Topic key have been set for bob!
+</code></pre><p>And we can observe on the client sides:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-text" data-lang="text"># Alice:
+&lt; received raw message on e4/a7dcef9aef26202fce82a7c7d6672afb: &lt;raw bytes&gt;
+&lt; unprotected message:
+# Bob:
+&lt; received raw message on e4/b5d577dc9ce59725e29886632e69ecdf: &lt;raw bytes&gt;
+&lt; unprotected message:
+</code></pre></div><p>We see raw binary being printed (our encrypted commands) and nothing in the unprotected message. This is good, it means our E4 clients have processed the commands successfully (otherwise an error would have been returned).</p>
+<p>We're now ready to exchange messages!</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="color:#586e75"># In alice&#39;s client:</span>
+Hello, I am alice and this is a secret message <span style="color:#719e07">for</span> bob!
+&gt; message published successfully
+
+<span style="color:#586e75"># And see in bob client:</span>
+&lt; received raw message on /e4go/demo/messages: &lt;raw bytes&gt;
+&lt; unprotected message: Hello, I&#39;m alice and this is a secret message <span style="color:#719e07">for</span> bob!
+</code></pre></div><p>It works! Now let's repeat our experiment with <code>eve</code>, trying to intercept messages from <code>alice</code>:</p>
+<div class="highlight"><pre style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ go run e4demo.go  -client eve -password super-secret-eve-password
+connected to mqtt.eclipse.org:1338
+&gt; subscribed to MQTT topic /e4go/demo/messages
+&gt; <span style="color:#b58900">type</span> anything and press enter to send the message to /e4go/demo/messages:
+&lt; received raw message on /e4go/demo/messages: &lt;raw bytes&gt;
+failed to unprotect message: topic key not found
+</code></pre></div><p>All good, unauthorized clients cannot unprotect the messages and read their content. <code>alice</code> and <code>bob</code> can now exchange private messages.
+Now, feel free to authorize <code>eve</code> by sending to its receiving topic a the setTopicKeyCommand!</p>
+<p>We'll do it in the next section anyway, to simulate <code>eve</code> having managed to steal the topic key. And we'll see another way of using the E4 client to protect even further our messages.</p>
+<div class="edit-meta">
+Last updated on 27 Sep 2019
+
+
+<br>
+Published on 6 Sep 2019
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/getting-started/go/3-setting-up-clients.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/getting-started/go/2-e4-integration/" title="Protecting messages with E4"><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - Protecting messages with E4</a>
+<a class="nav nav-next" href="/getting-started/go/4-going-further/" title="Going further">Next - Going further <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class=""><a href="/specifications/">Specifications</a>
+<ul class="">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class="parent"><a href="/getting-started/">Getting Started</a>
+<ul class="sub-menu">
+
+<li class="parent"><a href="/getting-started/go/">Go</a>
+<ul class="sub-menu">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class="active"><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>

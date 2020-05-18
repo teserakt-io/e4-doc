@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Specifications - E4</title>
+<meta name="description" content="Lightweight and secure IoT communications library">
+<meta name="generator" content="Hugo 0.63.0-DEV" />
+<link href="/index.xml" rel="alternate" type="application/rss+xml">
+<link rel="canonical" href="/specifications/">
+<link rel="stylesheet" href="/css/theme.min.css">
+<script src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
+<link rel="stylesheet" href="/css/chroma.min.css">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="/js/functions.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.easing@1.4.1/jquery.easing.min.js"></script>
+<script src="/js/jquery.backtothetop/jquery.backtothetop.min.js"></script><link rel="stylesheet" href="/css/e4.css">
+<link rel="stylesheet" href="/css/tabs.css">
+
+<script type="text/javascript" src="/js/tabs.js"></script>
+</head>
+<body>
+<div class="container"><header>
+    <a href="/" id="title">
+        <h1>E4</h1>
+    </a><a href="https://github.com/teserakt-io/" class="github"><i class="fab fa-github"></i></a>
+    <p class="description">Lightweight and secure IoT communications library</p>
+    
+</header>
+
+<div class="content-container">
+<main><h1>Specifications</h1><p>This document describes E4, a security and key management protocol for MQTT, and potentially other transport protocols.</p>
+<h1 id="table-of-contents">Table of Contents</h1>
+<ul>
+<li><a href="integration">Integration</a>
+<ul>
+<li><a href="integration#client-integration">Client integration</a></li>
+<li><a href="integration#server-integration-c2">Server integration (C2)</a>
+<ul>
+<li><a href="integration#services">Services</a></li>
+<li><a href="integration#database">Database</a></li>
+<li><a href="integration#requirements">Requirements</a></li>
+<li><a href="integration#disaster-recovery">Disaster recovery</a></li>
+<li><a href="integration#high-availability">High availability</a></li>
+<li><a href="integration#fault-tolerance">Fault tolerance</a></li>
+<li><a href="integration#logging">Logging</a></li>
+</ul>
+</li>
+<li><a href="integration#key-provisioning">Key provisioning</a></li>
+</ul>
+</li>
+<li><a href="client-specification">Client specification</a>
+<ul>
+<li><a href="client-specification#client-internal-state">Client internal state</a></li>
+<li><a href="client-specification#client-local-api-rx">Client local API (rx)</a>
+<ul>
+<li><a href="client-specification#protect-messagemessage-topic">protect_message(message, topic)</a></li>
+<li><a href="client-specification#unprotectmessage-topic">unprotect(message, topic)</a></li>
+</ul>
+</li>
+<li><a href="client-specification#client-remote-api-rx">Client remote API (rx)</a>
+<ul>
+<li><a href="client-specification#removetopictopichash">RemoveTopic(topichash)</a></li>
+<li><a href="client-specification#resettopics">ResetTopics()</a></li>
+<li><a href="client-specification#setidkeykey">SetIdKey(key)</a></li>
+<li><a href="client-specification#settopickeytopichash-key">SetTopicKey(topichash, key)</a></li>
+<li><a href="client-specification#removepubkeyid-pk-mode">RemovePubKey(id) [PK mode]</a></li>
+<li><a href="client-specification#resetpubkeys-pk-mode">ResetPubKeys() [PK mode]</a></li>
+<li><a href="client-specification#setpubkeyid-pubkey-pk-mode">SetPubKey(id, pubkey) [PK mode]</a></li>
+<li><a href="client-specification#setc2keypubkey-pk-mode">SetC2Key(pubkey) [PK mode]</a></li>
+</ul>
+</li>
+<li><a href="client-specification#key-transition-logic">Key transition logic</a></li>
+</ul>
+</li>
+<li><a href="c2-specification">C2 specification</a>
+<ul>
+<li><a href="c2-specification#c2-internal-state">C2 internal state</a></li>
+<li><a href="c2-specification#c2-api">C2 API</a>
+<ul>
+<li><a href="c2-specification#new-clientid-key-local">new_client(id, key) [local]</a></li>
+<li><a href="c2-specification#remove-clientid--local">remove_client(id)  [local]</a></li>
+<li><a href="c2-specification#new-topic-clientid-topic-remote">new_topic_client(id, topic) [remote]</a></li>
+<li><a href="c2-specification#remove-topic-clientid-topic-remote">remove_topic_client(id, topic) [remote]</a></li>
+<li><a href="c2-specification#reset-clientid-remote">reset_client(id) [remote]</a></li>
+<li><a href="c2-specification#new-topictopic-local">new_topic(topic) [local]</a></li>
+<li><a href="c2-specification#remove-topictopic-local">remove_topic(topic) [local]</a></li>
+<li><a href="c2-specification#new-client-keyid-local--remote-sk-mode">new_client_key(id) [local &amp; remote, SK mode]</a></li>
+<li><a href="c2-specification#reset-client-pubkeysid-remote-pk-mode">reset_client_pubkeys(id) [remote, PK mode]</a></li>
+<li><a href="c2-specification#send-client-pubkeyiddst-idsrc-remote-pk-mode">send_client_pubkey(iddst, idsrc) [remote, PK mode]</a></li>
+<li><a href="c2-specification#remove-client-pubkeyiddst-idsrc-remote-pk-mode">remove_client_pubkey(iddst, idsrc) [remote, PK mode]</a></li>
+<li><a href="c2-specification#new-c2-key-local--remote-pk-mode">new_c2_key() [local &amp; remote, PK mode]</a></li>
+</ul>
+</li>
+<li><a href="c2-specification#c2-human-interface">C2 human interface</a></li>
+</ul>
+</li>
+<li><a href="messages-encoding">Messages encoding</a>
+<ul>
+<li><a href="messages-encoding#client-and-c2-messages-encoding-sk-mode">Client and C2 messages encoding [SK mode]</a></li>
+<li><a href="messages-encoding#client-messages-encoding-pk-mode">Client messages encoding [PK mode]</a></li>
+<li><a href="messages-encoding#c2-messages-encoding-pk-mode">C2 messages encoding [PK mode]</a></li>
+</ul>
+</li>
+<li><a href="cryptography-primitives">Cryptography primitives</a>
+<ul>
+<li><a href="cryptography-primitives#authenticated-encryption">Authenticated encryption</a></li>
+<li><a href="cryptography-primitives#hashing">Hashing</a></li>
+<li><a href="cryptography-primitives#password-based-key-derivation">Password-based key derivation</a></li>
+<li><a href="cryptography-primitives#signature-pk-mode">Signature [PK mode]</a></li>
+<li><a href="cryptography-primitives#key-agreement-pk-mode">Key agreement [PK mode]</a></li>
+</ul>
+</li>
+<li><a href="protocol-variants">Protocol variants</a>
+<ul>
+<li><a href="protocol-variants#fips-mode">FIPS mode</a></li>
+<li><a href="protocol-variants#post-quantum-mode">Post-quantum mode</a></li>
+</ul>
+</li>
+<li><a href="additional-components">Additional components</a>
+<ul>
+<li><a href="additional-components#automation-engine">Automation engine</a></li>
+<li><a href="additional-components#monitoring--analytics">Monitoring &amp; analytics</a></li>
+</ul>
+</li>
+</ul>
+<div class="edit-meta">
+
+<br><a href="https://github.com/teserakt-io/e4-doc/edit/master/content/specifications/_index.md" class="edit-page"><i class="fas fa-pen-square"></i> Edit on GitHub</a></div><nav class="pagination"><a class="nav nav-prev" href="/" title=""><i class="fas fa-arrow-left" aria-hidden="true"></i> Prev - </a>
+<a class="nav nav-next" href="/specifications/integration/" title="Integration">Next - Integration <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</nav><footer></footer>
+</main><div class="sidebar">
+<nav>
+<ul>
+<li class=""><a href="/">Home</a></li>
+
+<li class="parent active"><a href="/specifications/">Specifications</a>
+<ul class="sub-menu">
+<li class=""><a href="/specifications/integration/">Integration</a></li>
+<li class=""><a href="/specifications/client-specification/">Client specification</a></li>
+<li class=""><a href="/specifications/c2-specification/">C2 specification</a></li>
+<li class=""><a href="/specifications/messages-encoding/">Message encoding</a></li>
+<li class=""><a href="/specifications/cryptography-primitives/">Cryptography primitives</a></li>
+<li class=""><a href="/specifications/protocol-variants/">Protocol variants</a></li>
+<li class=""><a href="/specifications/additional-components/">Additional components</a></li>
+</ul>
+  
+</li>
+
+<li class=""><a href="/languages/">Supported languages</a>
+</li>
+
+<li class=""><a href="/getting-started/">Getting Started</a>
+<ul class="">
+
+<li class=""><a href="/getting-started/go/">Go</a>
+<ul class="">
+<li class=""><a href="/getting-started/go/1-basic-app/">Basic application setup</a></li>
+<li class=""><a href="/getting-started/go/2-e4-integration/">Protecting messages with E4</a></li>
+<li class=""><a href="/getting-started/go/3-setting-up-clients/">Setting up E4 clients</a></li>
+<li class=""><a href="/getting-started/go/4-going-further/">Going further</a></li>
+</ul>
+  
+</li>
+</ul>
+  
+</li>
+</ul>
+</nav>
+
+
+<div class="sidebar-footer"></div>
+</div>
+</div><a href="#" id="backtothetop-fixed" class="backtothetop"
+ data-backtothetop-duration="600"
+ data-backtothetop-easing="easeOutQuart"
+ data-backtothetop-fixed-fadeIn="1000"
+ data-backtothetop-fixed-fadeOut="1000"
+ data-backtothetop-fixed-bottom="10"
+ data-backtothetop-fixed-right="20">
+<span class="fa-layers fa-fw">
+<i class="fas fa-circle"></i>
+<i class="fas fa-arrow-circle-up"></i>
+</span></a>
+</div>
+</body>
+</html>
