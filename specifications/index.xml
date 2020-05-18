@@ -2,49 +2,49 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Specifications on E4</title>
-    <link>/specifications/</link>
+    <link>https://teserakt-io.github.io/e4-doc/specifications/</link>
     <description>Recent content in Specifications on E4</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     
-	<atom:link href="/specifications/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://teserakt-io.github.io/e4-doc/specifications/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Integration</title>
-      <link>/specifications/integration/</link>
+      <link>https://teserakt-io.github.io/e4-doc/specifications/integration/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>/specifications/integration/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/specifications/integration/</guid>
       <description>Client integration Server integration (C2)  Services Database Requirements Disaster recovery High availability Fault tolerance Logging   Key provisioning  Client integration The E4 client can be integrated in one of the following ways:
   Software library: We currently have a C and Go version of the E4 library, which developers can integrate in their applications. The E4 logic sits between the application logic and the transport layer: when transmitting a message, the code of the application logic will first call the E4 library&#39;s protect() function before calling MQTT&#39;s sending function, instead of sending the unencrypted message directly.</description>
     </item>
     
     <item>
       <title>Client specification</title>
-      <link>/specifications/client-specification/</link>
+      <link>https://teserakt-io.github.io/e4-doc/specifications/client-specification/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>/specifications/client-specification/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/specifications/client-specification/</guid>
       <description>Client internal state Client local API (rx)  protect_message(message, topic) unprotect(message, topic)   Client remote API (rx)  RemoveTopic(topichash) ResetTopics() SetIdKey(key) SetTopicKey(topichash, key) RemovePubKey(id) [PK mode] ResetPubKeys() [PK mode] SetPubKey(id, pubkey) [PK mode] SetC2Key(pubkey) [PK mode]   Key transition logic  E4 clients are for example sensors devices, vehicles, mobile phones, backend servers or any type of device that participates in the communication.
 In order to receive commands from the C2, a client&#39;s MQTT service must subscribe to the topic E4/&amp;lt;id&amp;gt;, with their own id in hexadecimal (lower-case).</description>
     </item>
     
     <item>
       <title>C2 specification</title>
-      <link>/specifications/c2-specification/</link>
+      <link>https://teserakt-io.github.io/e4-doc/specifications/c2-specification/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>/specifications/c2-specification/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/specifications/c2-specification/</guid>
       <description>C2 internal state C2 API  new_client(id, key) [local] remove_client(id) [local] new_topic_client(id, topic) [remote] remove_topic_client(id, topic) [remote] reset_client(id) [remote] new_topic(topic) [local] remove_topic(topic) [local] new_client_key(id) [local &amp;amp; remote, SK mode] reset_client_pubkeys(id) [remote, PK mode] send_client_pubkey(iddst, idsrc) [remote, PK mode] remove_client_pubkey(iddst, idsrc) [remote, PK mode] new_c2_key() [local &amp;amp; remote, PK mode]   C2 human interface  C2 (command-and-control) is the host that manages clients&amp;rsquo; keys remotely, by sending commands to clients over MQTT.</description>
     </item>
     
     <item>
       <title>Message encoding</title>
-      <link>/specifications/messages-encoding/</link>
+      <link>https://teserakt-io.github.io/e4-doc/specifications/messages-encoding/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>/specifications/messages-encoding/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/specifications/messages-encoding/</guid>
       <description>Client and C2 messages encoding [SK mode] Client messages encoding [PK mode] C2 messages encoding [PK mode]  This section describes the format of protected messages and how they are (de)serialized:
   Messages exchanged between E4 clients under an arbitrary topic for which keys have been provisioned.
   Messages sent from C2 to clients. These messages contain a command whose format is specified below.
@@ -53,20 +53,20 @@ In order to receive commands from the C2, a client&#39;s MQTT service must subsc
     
     <item>
       <title>Cryptography primitives</title>
-      <link>/specifications/cryptography-primitives/</link>
+      <link>https://teserakt-io.github.io/e4-doc/specifications/cryptography-primitives/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>/specifications/cryptography-primitives/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/specifications/cryptography-primitives/</guid>
       <description>Authenticated encryption Hashing Password-based key derivation Signature [PK mode] Key agreement [PK mode]  This section lists the default cryptography algorithms used in E4. We can also integrate other algorithms based on customers&amp;rsquo; preferences, as well as custom proprietary algorithms, both as a replacement or as an additional encryption layer.
 Authenticated encryption E4 uses the AES-SIV authenticated encryption mode as specified in RFC 5297, with a same 256-bit key for the internal MAC and CTR instance, with by default no nonce.</description>
     </item>
     
     <item>
       <title>Protocol variants</title>
-      <link>/specifications/protocol-variants/</link>
+      <link>https://teserakt-io.github.io/e4-doc/specifications/protocol-variants/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>/specifications/protocol-variants/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/specifications/protocol-variants/</guid>
       <description>FIPS mode Post-quantum mode  FIPS mode E4&#39;s FIPS allows the application that uses it to obtain a FIPS 140-2 validation (CMVP). For this, only FIPS-compliant algorithms must be used.
 In its default version, E4 uses SHA-3 (FIPS-compliant), however it uses AES in SIV mode, a mode that is not FIPS-compliant. E4&#39;s FIPS mode therefore replaces AES-SIV with AES-GCM.
 In the public-key version of E4,
@@ -75,10 +75,10 @@ In the public-key version of E4,
     
     <item>
       <title>Additional components</title>
-      <link>/specifications/additional-components/</link>
+      <link>https://teserakt-io.github.io/e4-doc/specifications/additional-components/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
-      <guid>/specifications/additional-components/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/specifications/additional-components/</guid>
       <description>Automation engine Monitoring &amp;amp; analytics Keygen  This section briefly describes additional server components, implementing other features than the core C2 key management logic:
 Automation engine The automation engine (AE) is a separate application which will connect to the C2 in order to subscribe to an event stream. It&#39;s role is to rotates topic or clients keys according to a period defined by the user, or according to events occurring on the C2 (such as devices joining/leaving a topic).</description>
     </item>

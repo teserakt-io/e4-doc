@@ -3,82 +3,82 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>/getting-started/go/1-basic-app/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/getting-started/go/1-basic-app/</loc>
     <lastmod>2019-09-27T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/specifications/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/</loc>
   </url>
   
   <url>
-    <loc>/getting-started/go/2-e4-integration/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/getting-started/go/2-e4-integration/</loc>
     <lastmod>2019-09-27T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/specifications/integration/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/integration/</loc>
   </url>
   
   <url>
-    <loc>/languages/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/languages/</loc>
   </url>
   
   <url>
-    <loc>/getting-started/go/3-setting-up-clients/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/getting-started/go/3-setting-up-clients/</loc>
     <lastmod>2019-09-27T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/specifications/client-specification/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/client-specification/</loc>
   </url>
   
   <url>
-    <loc>/getting-started/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/getting-started/</loc>
   </url>
   
   <url>
-    <loc>/getting-started/go/4-going-further/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/getting-started/go/4-going-further/</loc>
     <lastmod>2019-09-27T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/specifications/c2-specification/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/c2-specification/</loc>
   </url>
   
   <url>
-    <loc>/specifications/messages-encoding/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/messages-encoding/</loc>
   </url>
   
   <url>
-    <loc>/specifications/cryptography-primitives/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/cryptography-primitives/</loc>
   </url>
   
   <url>
-    <loc>/specifications/protocol-variants/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/protocol-variants/</loc>
   </url>
   
   <url>
-    <loc>/specifications/additional-components/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/specifications/additional-components/</loc>
   </url>
   
   <url>
-    <loc>/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/</loc>
     <lastmod>2019-09-27T00:00:00+00:00</lastmod>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>/getting-started/go/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/getting-started/go/</loc>
     <lastmod>2019-09-05T00:00:00+00:00</lastmod>
   </url>
   
   <url>
-    <loc>/categories/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/categories/</loc>
   </url>
   
   <url>
-    <loc>/tags/</loc>
+    <loc>https://teserakt-io.github.io/e4-doc/tags/</loc>
   </url>
   
 </urlset>

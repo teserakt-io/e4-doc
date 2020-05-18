@@ -2,12 +2,12 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Getting Started on E4</title>
-    <link>/getting-started/</link>
+    <link>https://teserakt-io.github.io/e4-doc/getting-started/</link>
     <description>Recent content in Getting Started on E4</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     
-	<atom:link href="/getting-started/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://teserakt-io.github.io/e4-doc/getting-started/index.xml" rel="self" type="application/rss+xml" />
     
     
   </channel>

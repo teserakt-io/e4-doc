@@ -2,41 +2,41 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Go on E4</title>
-    <link>/getting-started/go/</link>
+    <link>https://teserakt-io.github.io/e4-doc/getting-started/go/</link>
     <description>Recent content in Go on E4</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <lastBuildDate>Thu, 05 Sep 2019 00:00:00 +0000</lastBuildDate>
     
-	<atom:link href="/getting-started/go/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://teserakt-io.github.io/e4-doc/getting-started/go/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Basic application setup</title>
-      <link>/getting-started/go/1-basic-app/</link>
+      <link>https://teserakt-io.github.io/e4-doc/getting-started/go/1-basic-app/</link>
       <pubDate>Fri, 06 Sep 2019 00:00:00 +0000</pubDate>
       
-      <guid>/getting-started/go/1-basic-app/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/getting-started/go/1-basic-app/</guid>
       <description>Let&#39;s start by creating a basic Go client application. It will:
  Read a client identifier from command line flags Connect to a MQTT broker (we&#39;ll use the public mqtt.eclipse.org:1338) Subscribe to the MQTT topic /e4go/demo/messages and print any incoming messages to stdout Wait for user input on stdin, so that the user can type in a message and press enter. Messages will then be published on the peer MQTT topic /e4go/demo/messages.</description>
     </item>
     
     <item>
       <title>Protecting messages with E4</title>
-      <link>/getting-started/go/2-e4-integration/</link>
+      <link>https://teserakt-io.github.io/e4-doc/getting-started/go/2-e4-integration/</link>
       <pubDate>Fri, 06 Sep 2019 00:00:00 +0000</pubDate>
       
-      <guid>/getting-started/go/2-e4-integration/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/getting-started/go/2-e4-integration/</guid>
       <description>In previous part, we made a simple application where alice and bob could exchange messages. But now we want them to be able to communicate privately, even if eve subscribe to the MQTT topic.
 To do so, we&#39;ll integrate the E4 library in our application, and create a symmetric key, and securely share it with alice and bob, so they can encrypt their messages with it. After this, only key holders could read the exchanged messages.</description>
     </item>
     
     <item>
       <title>Setting up E4 clients</title>
-      <link>/getting-started/go/3-setting-up-clients/</link>
+      <link>https://teserakt-io.github.io/e4-doc/getting-started/go/3-setting-up-clients/</link>
       <pubDate>Fri, 06 Sep 2019 00:00:00 +0000</pubDate>
       
-      <guid>/getting-started/go/3-setting-up-clients/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/getting-started/go/3-setting-up-clients/</guid>
       <description>Previously, we&#39;ve updated our application to integrate the E4 library, and protect and unprotect the exchanged messages. But we could not communicate yet, since the clients didn&#39;t hold any keys necessary to encrypt or decrypt the messages. We&#39;ll fix this now.
 E4 clients can receive commands, meant to update their internal state, like the list of topic keys they can uses. So to fix our issue, we&#39;ll need to:
  generate a topic key for /e4demo/messages topic send this key to each clients, on their respective E4 receiving topics  Once clients have received the key, alice will be able to protect message she send, and unprotect messages from bob.</description>
@@ -44,10 +44,10 @@ E4 clients can receive commands, meant to update their internal state, like the 
     
     <item>
       <title>Going further</title>
-      <link>/getting-started/go/4-going-further/</link>
+      <link>https://teserakt-io.github.io/e4-doc/getting-started/go/4-going-further/</link>
       <pubDate>Wed, 25 Sep 2019 00:00:00 +0000</pubDate>
       
-      <guid>/getting-started/go/4-going-further/</guid>
+      <guid>https://teserakt-io.github.io/e4-doc/getting-started/go/4-going-further/</guid>
       <description>At this point, we have a working solution to secure communication over a shared topic, where all topic&#39;s members can send and receive encrypted messages from every other members. But E4 also allow us to explore another scenario, where we can choose who a client is authorized to receive messages from. Let&#39;s imagine eve have been given the topic key so she can send and receive messages, but she&#39;s not allowed to send messages to alice and bob.</description>
     </item>
     
