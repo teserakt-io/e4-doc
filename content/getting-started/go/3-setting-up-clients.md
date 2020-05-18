@@ -1,5 +1,5 @@
 ---
-title: "3) Setting up E4 clients"
+title: "Setting up E4 clients"
 date: "2019-09-06"
 lastmod: "2019-09-27"
 draft: false
@@ -19,15 +19,17 @@ Once clients have received the key, `alice` will be able to protect message she 
 Let's start by booting up our 2 clients, so they are listening on their topics:
 ```bash
 # In a first terminal, start Alice client:
-go run e4demo.go  -client alice -password alice-super-secret-password
+go run e4demo.go  -client alice -password super-secret-alice-password
 # And in another, start Bob client:
-go run e4demo.go  -client bob -password bob-super-secret-password
+go run e4demo.go  -client bob -password super-secret-bob-password
 ```
 
-Now, let's write another small `initKeys.go` script to send SetTopicKey commands to our clients:
+You can replace `super-secret-alice-password` and `super-secret-bob-password` with some of your choice.
+Now, let's write another small `initKeys.go` script to send `SetTopicKey` commands to our clients:
 
 ```text
-touch ./initKeys.go
+$ mkdir init/ && \
+	touch ./init/initKeys.go
 ```
 
 ```go
@@ -38,7 +40,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
@@ -57,14 +59,14 @@ func main() {
 	}
 
 	// Create a E4 command to set the topic key:
-	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	setTopicKeyCmd, err := e4.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
 	}
 
 	// Connect to MQTT broker
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker("mqtt.teserakt.io:1883")
+	opts.AddBroker("mqtt.eclipse.org:1338")
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
@@ -90,7 +92,7 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	timeout := time.Second
 	if !token.WaitTimeout(timeout) {
@@ -103,15 +105,15 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 
 [Click here to download the full source of this script](../initKeys-step3.go)
 
-Let's run this script:
-```bash
-$ go run initKeys.go
+Replace `super-secret-alice-password` and `super-secret-bob-password` and let's run this script:
+```
+$ go run ./init/initKeys.go
 Topic key have been set for alice!
 Topic key have been set for bob!
 ```
 
 And we can observe on the client sides:
-```bash
+```text
 # Alice:
 < received raw message on e4/a7dcef9aef26202fce82a7c7d6672afb: <raw bytes>
 < unprotected message:
@@ -136,10 +138,10 @@ Hello, I am alice and this is a secret message for bob!
 It works! Now let's repeat our experiment with `eve`, trying to intercept messages from `alice`:
 ```bash
 $ go run e4demo.go  -client eve -password super-secret-eve-password
-connected to mqtt.teserakt.io:1883
+connected to mqtt.eclipse.org:1338
 > subscribed to MQTT topic /e4go/demo/messages
 > type anything and press enter to send the message to /e4go/demo/messages:
-< received raw message on /e4go/demo/messages: ûö]îªò(ð\þ¿lYj:Kò"Ó
+< received raw message on /e4go/demo/messages: <raw bytes>
 failed to unprotect message: topic key not found
 ```
 

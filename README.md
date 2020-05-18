@@ -3,7 +3,6 @@
 
 This repository holds documentation for E4. It's based on [hugo](https://gohugo.io/).
 
-
 ## Development
 
 First, install Hugo:
@@ -12,7 +11,6 @@ First, install Hugo:
 go get -u github.com/gohugoio/hugo
 go install -a --tags extended github.com/gohugoio/hugo
 ```
-
 
 Clone the repository then run:
 

@@ -8,7 +8,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"golang.org/x/crypto/ed25519"
 
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
@@ -17,14 +17,14 @@ func main() {
 	messageTopicKey := e4crypto.RandomKey()
 
 	// Create a E4 command to set the topic key:
-	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	setTopicKeyCmd, err := e4.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
 	}
 
 	// Connect to MQTT broker
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker("mqtt.teserakt.io:1883")
+	opts.AddBroker("mqtt.eclipse.org:1338")
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// Now gives bob's public key to alice
-	setBobPubKeyCmd, err := e4go.CmdSetPubKey(loadPublicKey("bob"), "bob")
+	setBobPubKeyCmd, err := e4.CmdSetPubKey(loadPublicKey("bob"), "bob")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setBobPubKeyCmd: %v", err))
 	}
@@ -51,7 +51,7 @@ func main() {
 	fmt.Println("alice now have bob's public key!")
 
 	// And alice's public key to bob
-	setAlicePubKeyCmd, err := e4go.CmdSetPubKey(loadPublicKey("alice"), "alice")
+	setAlicePubKeyCmd, err := e4.CmdSetPubKey(loadPublicKey("alice"), "alice")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setAlicePubKeyCmd: %v", err))
 	}
@@ -67,12 +67,17 @@ func pubKeyProtectAndSendCommand(mqttClient mqtt.Client, clientName string, comm
 	clientPublicCurveKey := e4crypto.PublicEd25519KeyToCurve25519(loadPublicKey(clientName))
 	adminPrivateCurveKey := e4crypto.PrivateEd25519KeyToCurve25519(loadPrivateKey("admin"))
 
-	protectedCommand, err := e4crypto.ProtectCommandPubKey(command, &clientPublicCurveKey, &adminPrivateCurveKey)
+	shared, err := curve25519.X25519(adminPrivateCurveKey, clientPublicCurveKey)
+	if err != nil {
+		return fmt.Errorf("curve25519 X25519 failed: %v", err)
+	}
+
+	protectedCommand, err := e4crypto.ProtectSymKey(command, e4crypto.Sha3Sum256(shared))
 	if err != nil {
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	if !token.WaitTimeout(time.Second) {
 		return fmt.Errorf("failed to publish command: %v", token.Error())

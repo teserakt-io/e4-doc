@@ -5,7 +5,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/teserakt-io/e4go"
+	e4 "github.com/teserakt-io/e4go"
 	e4crypto "github.com/teserakt-io/e4go/crypto"
 )
 
@@ -24,14 +24,14 @@ func main() {
 	}
 
 	// Create a E4 command to set the topic key:
-	setTopicKeyCmd, err := e4go.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
+	setTopicKeyCmd, err := e4.CmdSetTopicKey(messageTopicKey, "/e4go/demo/messages")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create setTopicKeyCmd: %v", err))
 	}
 
 	// Connect to MQTT broker
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker("mqtt.teserakt.io:1883")
+	opts.AddBroker("mqtt.eclipse.org:1338")
 	opts.SetCleanSession(true)
 
 	mqttClient := mqtt.NewClient(opts)
@@ -57,7 +57,7 @@ func protectAndSendCommand(mqttClient mqtt.Client, clientName string, clientKey,
 		return fmt.Errorf("failed to protect command: %v", err)
 	}
 
-	clientReceivingTopic := e4go.TopicForID(e4crypto.HashIDAlias(clientName))
+	clientReceivingTopic := e4.TopicForID(e4crypto.HashIDAlias(clientName))
 	token := mqttClient.Publish(clientReceivingTopic, 2, true, protectedCommand)
 	timeout := time.Second
 	if !token.WaitTimeout(timeout) {
