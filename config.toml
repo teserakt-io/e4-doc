@@ -1,4 +1,4 @@
-baseURL = "/"
+baseURL = "https://teserakt-io.github.io/e4-doc/"
 languageCode = "en-us"
 title = "E4"
 theme = "techdoc"
